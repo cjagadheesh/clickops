@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-The repo currently holds only the build plan (`clickops — 30-Day Build Plan for Claude Code.md`). Day 1 saves it as `docs/PLAN.md`. No code, `Makefile` or `PROGRESS.md` exists yet. The plan is the source of truth: read it and `PROGRESS.md`, then do the next unfinished day. One day per session.
+The repo currently holds only the build plan (`plan1.md`). Day 1 saves it as `docs/PLAN.md`. No code, `Makefile` or `PROGRESS.md` exists yet. The plan is the source of truth: read it and `PROGRESS.md`, then do the next unfinished day. One day per session.
 
 ## What clickops is
 
