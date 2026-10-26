@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-The repo currently holds only the build plan (`plan1.md`). Day 1 saves it as `docs/PLAN.md`. No code, `Makefile` or `PROGRESS.md` exists yet. The plan is the source of truth: read it and `PROGRESS.md`, then do the next unfinished day. One day per session.
+The plan is `claude/plan1.md` (kept in `claude/` rather than `docs/PLAN.md`, per the Important section below). Progress is logged in `PROGRESS.md` at the repo root. Read both, then do the next unfinished day. One day per session. Day 1 scaffolding exists: uv project, empty modules, `Makefile`, CI.
 
 ## What clickops is
 
 Watches one AWS account (`ap-south-1`) and alerts on Slack when someone changes Terraform-managed infrastructure outside Terraform. Also provides `clickops scan` (shadow resources found in no Terraform state) and `clickops import` (writes `import` blocks and runs `terraform plan -generate-config-out`).
 
-## Commands (once Day 1 scaffolding exists)
+## Commands
 
 - `make check` runs ruff, mypy (strict on `clickops/`) and pytest. It must pass before every commit.
 - `make fmt`, `make lint`, `make typecheck`, `make test` run the individual steps.
