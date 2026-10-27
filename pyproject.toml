@@ -12,6 +12,9 @@ dependencies = [
     "typer>=0.12",
 ]
 
+[project.scripts]
+clickops = "clickops.cli:app"
+
 [dependency-groups]
 dev = [
     "boto3-stubs[dynamodb,ec2,iam,lambda,route53,s3,sns,ssm,sts]>=1.35",
