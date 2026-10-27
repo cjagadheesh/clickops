@@ -1,0 +1,24 @@
+# Copy to clickops.yaml and replace the placeholders.
+region: ap-south-1
+
+# Terraform state files clickops reads (one per root).
+state_locations:
+  - bucket: clickops-tfstate-<account-id>
+    key: sandbox/terraform.tfstate
+  - bucket: clickops-tfstate-<account-id>
+    key: detector/terraform.tfstate
+
+# Role ARNs treated as CI (never alerted on), in addition to clickops-ci.
+trusted_roles:
+  - arn:aws:iam::<account-id>:role/<trusted-role>
+
+# Resources that never alert.
+ignore:
+  - resource_type: aws_security_group
+    id_pattern: "sg-scratch-*"
+    reason: scratch groups used for experiments
+
+# Replace the default severity for an outcome (optionally per resource type).
+severity_overrides:
+  - outcome: shadow-create
+    severity: warning
