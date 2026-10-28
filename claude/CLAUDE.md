@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-The plan is `claude/plan1.md` (kept in `claude/` rather than `docs/PLAN.md`, per the Important section below). Progress is logged in `PROGRESS.md` at the repo root. Read both, then do the next unfinished day. One day per session. Days 1-2 done: scaffold, models, config loader, `clickops doctor`.
+The plan is `claude/plan1.md` (kept in `claude/` rather than `docs/PLAN.md`, per the Important section below). Progress is logged in `PROGRESS.md` at the repo root. Read both, then do the next unfinished day. One day per session. Days 1-3 done: scaffold, models, config loader, `clickops doctor`, `infra/bootstrap` (not yet applied).
 
 ## What clickops is
 
