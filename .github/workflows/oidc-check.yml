@@ -1,0 +1,20 @@
+name: oidc-check
+
+# Manual check that GitHub OIDC can assume the clickops-ci role.
+# Set the repository variable CLICKOPS_CI_ROLE_ARN to the `ci_role_arn` output of infra/bootstrap.
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  whoami:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.CLICKOPS_CI_ROLE_ARN }}
+          aws-region: ap-south-1
+      - run: aws sts get-caller-identity
