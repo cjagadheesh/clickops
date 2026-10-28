@@ -1,0 +1,3 @@
+# Copy to bootstrap.auto.tfvars (gitignored) and fill in.
+account_id   = "123456789012"
+github_owner = "your-github-user"
