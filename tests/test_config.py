@@ -48,6 +48,7 @@ def test_example_config_is_valid() -> None:
         VALID.replace("arn:aws:iam::123456789012:role/ci", "not-an-arn"),
         VALID.replace("severity: warning", "severity: loud"),
         "state_locations: [unclosed",
+        VALID + "ignore:\n  - reason: matches everything\n",
     ],
 )
 def test_invalid_config(tmp_path: Path, text: str) -> None:
@@ -58,3 +59,10 @@ def test_invalid_config(tmp_path: Path, text: str) -> None:
 def test_missing_file(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="cannot read"):
         load_config(tmp_path / "nope.yaml")
+
+
+def test_binary_file(tmp_path: Path) -> None:
+    path = tmp_path / "clickops.yaml"
+    path.write_bytes(b"\xff\xfe\x00bad")
+    with pytest.raises(ConfigError, match="UTF-8"):
+        load_config(path)

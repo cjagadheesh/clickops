@@ -5,7 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from clickops.models import Outcome, Severity
 
@@ -30,6 +37,14 @@ class IgnoreRule(BaseModel):
     resource_type: str | None = None
     id_pattern: str | None = None
     reason: str = ""
+
+    @model_validator(mode="after")
+    def _has_a_matcher(self) -> IgnoreRule:
+        if self.resource_type is None and self.id_pattern is None:
+            raise ValueError(
+                "ignore rule needs resource_type or id_pattern, or it matches everything"
+            )
+        return self
 
 
 class SeverityOverride(BaseModel):
@@ -63,6 +78,8 @@ def load_config(path: Path) -> Config:
         raw = yaml.safe_load(path.read_text())
     except OSError as exc:
         raise ConfigError(f"cannot read {path}: {exc.strerror}") from exc
+    except UnicodeDecodeError as exc:
+        raise ConfigError(f"{path} is not a UTF-8 text file") from exc
     except yaml.YAMLError as exc:
         raise ConfigError(f"{path} is not valid YAML: {exc}") from exc
     if not isinstance(raw, dict):

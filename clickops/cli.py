@@ -7,6 +7,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from clickops.doctor import run_checks
@@ -31,7 +32,12 @@ def doctor(
     for col in ("Check", "Result", "Detail", "Fix"):
         table.add_column(col, overflow="fold")
     for r in results:
-        table.add_row(r.name, "[green]pass[/]" if r.ok else "[red]fail[/]", r.detail, r.hint)
+        table.add_row(
+            escape(r.name),
+            "[green]pass[/]" if r.ok else "[red]fail[/]",
+            escape(r.detail),
+            escape(r.hint),
+        )
     Console().print(table)
     if not all(r.ok for r in results):
         raise typer.Exit(1)

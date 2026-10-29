@@ -84,3 +84,15 @@ def test_doctor_cli_exit_code(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     assert result.exit_code == 1
     assert "Terraform version" in result.output
     assert "fail" in result.output
+
+
+@mock_aws
+def test_doctor_cli_survives_brackets_in_errors(tmp_path: Path) -> None:
+    # An invalid bucket name makes botocore raise an error whose text contains `[/:]`,
+    # which rich would otherwise parse as a markup tag.
+    cfg = tmp_path / "clickops.yaml"
+    cfg.write_text("state_locations: [{bucket: 'tfstate-<account-id>', key: k}]")
+    result = CliRunner().invoke(app, ["doctor", "--config", str(cfg)])
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert "fail" in result.output
