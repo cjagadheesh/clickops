@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 
 import boto3
@@ -96,3 +97,38 @@ def test_doctor_cli_survives_brackets_in_errors(tmp_path: Path) -> None:
     assert result.exit_code == 1
     assert isinstance(result.exception, SystemExit)
     assert "fail" in result.output
+
+
+def _terraform_says(monkeypatch: pytest.MonkeyPatch, stdout: str) -> None:
+    done = subprocess.CompletedProcess([], 0, stdout, "")
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: done)
+
+
+def test_terraform_too_old(monkeypatch: pytest.MonkeyPatch) -> None:
+    _terraform_says(monkeypatch, json.dumps({"terraform_version": "1.9.9"}))
+    result = doc.check_terraform()
+    assert not result.ok
+    assert "older than 1.10" in result.detail
+
+
+def test_terraform_unparseable(monkeypatch: pytest.MonkeyPatch) -> None:
+    _terraform_says(monkeypatch, "")
+    result = doc.check_terraform()
+    assert not result.ok
+    assert "parse" in result.detail
+
+
+def test_terraform_new_enough(monkeypatch: pytest.MonkeyPatch) -> None:
+    _terraform_says(monkeypatch, json.dumps({"terraform_version": "1.100.0"}))
+    assert doc.check_terraform().ok
+
+
+def test_credentials_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    for k in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"):
+        monkeypatch.delenv(k)
+    monkeypatch.setenv("AWS_CONFIG_FILE", "/nonexistent")
+    monkeypatch.setenv("AWS_SHARED_CREDENTIALS_FILE", "/nonexistent")
+    monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")
+    result = doc.check_credentials("ap-south-1")
+    assert not result.ok
+    assert result.hint

@@ -49,6 +49,14 @@ def test_example_config_is_valid() -> None:
         VALID.replace("severity: warning", "severity: loud"),
         "state_locations: [unclosed",
         VALID + "ignore:\n  - reason: matches everything\n",
+        VALID + "ignore:\n  - id_pattern: ''\n",
+        VALID + "region: mars\n",
+        VALID.replace("arn:aws:iam::123456789012:role/ci", "arn:aws:iam::123456789012:user/bob"),
+        "state_locations: [{bucket: '', key: k}]",
+        "state_locations: [{bucket: b, key: ''}]",
+        "state_locations: [{bucket: 's3://b', key: k}]",
+        "state_locations: [{bucket: b, key: /k}]",
+        "state_locations: [{bucket: b, key: k, region: mars}]",
     ],
 )
 def test_invalid_config(tmp_path: Path, text: str) -> None:

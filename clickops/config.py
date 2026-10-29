@@ -16,6 +16,8 @@ from pydantic import (
 
 from clickops.models import Outcome, Severity
 
+REGION_PATTERN = r"^[a-z]{2}(-[a-z]+)+-\d$"
+
 
 class ConfigError(Exception):
     """The config file is missing, unreadable or invalid."""
@@ -24,9 +26,23 @@ class ConfigError(Exception):
 class StateLocation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    bucket: str
-    key: str
-    region: str = "ap-south-1"
+    bucket: str = Field(min_length=1)
+    key: str = Field(min_length=1)
+    region: str = Field(default="ap-south-1", pattern=REGION_PATTERN)
+
+    @field_validator("bucket")
+    @classmethod
+    def _bucket_is_a_name(cls, bucket: str) -> str:
+        if bucket.startswith("s3://") or "/" in bucket:
+            raise ValueError(f"bucket must be a bucket name, not a URL or path: {bucket}")
+        return bucket
+
+    @field_validator("key")
+    @classmethod
+    def _key_is_relative(cls, key: str) -> str:
+        if key.startswith("/"):
+            raise ValueError(f"key must not start with '/': {key}")
+        return key
 
 
 class IgnoreRule(BaseModel):
@@ -34,8 +50,8 @@ class IgnoreRule(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    resource_type: str | None = None
-    id_pattern: str | None = None
+    resource_type: str | None = Field(default=None, min_length=1)
+    id_pattern: str | None = Field(default=None, min_length=1)
     reason: str = ""
 
     @model_validator(mode="after")
@@ -58,7 +74,7 @@ class SeverityOverride(BaseModel):
 class Config(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    region: str = "ap-south-1"
+    region: str = Field(default="ap-south-1", pattern=REGION_PATTERN)
     state_locations: list[StateLocation] = Field(min_length=1)
     trusted_roles: list[str] = Field(default_factory=list)
     ignore: list[IgnoreRule] = Field(default_factory=list)
@@ -68,8 +84,8 @@ class Config(BaseModel):
     @classmethod
     def _roles_are_arns(cls, roles: list[str]) -> list[str]:
         for role in roles:
-            if not role.startswith("arn:aws:iam::"):
-                raise ValueError(f"trusted role must be an IAM ARN: {role}")
+            if not role.startswith("arn:aws:iam::") or ":role/" not in role:
+                raise ValueError(f"trusted role must be an IAM role ARN: {role}")
         return roles
 
 
