@@ -79,3 +79,23 @@
 - Run `terraform init -backend-config=backend.hcl`, `validate` and `plan` in `infra/sandbox`, fix anything flagged, then approve the apply. The "Done when" check is a second `terraform plan` that shows no changes.
 - The apply needs Day 3's bootstrap applied first (state bucket must exist). Set your real `admin_cidr` in a gitignored `sandbox.auto.tfvars`.
 - The `clickops-ci` role may lack permissions the sandbox needs (for example `ec2:ModifyInstanceMetadataOptions` or tagging calls); Day 5's CI run will show gaps to add.
+
+## Day 5: Terraform CI
+
+**Built**
+- `.github/workflows/terraform.yml`: on pull requests and pushes touching `infra/`, a `static` job runs `terraform fmt -check`, `validate` (no backend) and `tflint` for every root with `.tf` files. On pull requests a `plan` job runs for `sandbox` and `detector` (skipped while `infra/detector` has no `.tf` files) and posts or updates one plan comment per root. On push to `main`, `apply-sandbox` applies the sandbox only (the detector gets apply on Day 13).
+- AWS access uses `aws-actions/configure-aws-credentials` with `role-to-assume` and `id-token: write`; no stored keys.
+- `.tflint.hcl` with the recommended ruleset.
+- `tests/test_terraform_workflow.py` checks triggers, the sandbox/detector plan matrix, the main-only sandbox-only apply and OIDC-only access.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 46 passed (includes tests the owner added for config and doctor).
+
+**Deviations**
+- The plan has plan and apply use the `clickops-ci` role; the state bucket and admin CIDR reach the workflow through repository variables rather than files, since `backend.hcl` and tfvars are gitignored.
+- Terraform, tflint and GitHub Actions cannot run in this environment, so the workflow is checked structurally only.
+- Day 4's sandbox apply is assumed done by the owner (lock files were committed); nothing in the repo records the result.
+
+**Needs the human**
+- Set repository variables `CLICKOPS_CI_ROLE_ARN`, `TF_STATE_BUCKET` and `TF_ADMIN_CIDR` (same value the sandbox was applied with, or the first CI plan will show a rule change).
+- "Done when": open a PR that changes one sandbox tag, confirm the plan comment appears, merge it, and confirm the apply job succeeds. Expect to widen `clickops-ci` if the plan hits AccessDenied (Day 24 tightens it later).
