@@ -1,0 +1,129 @@
+name: terraform
+
+# Repository variables used here:
+#   CLICKOPS_CI_ROLE_ARN  ci_role_arn output of infra/bootstrap
+#   TF_STATE_BUCKET       state_bucket output of infra/bootstrap
+#   TF_ADMIN_CIDR         the sandbox admin /32 (must match what the sandbox was applied with)
+on:
+  pull_request:
+    paths: ["infra/**", ".github/workflows/terraform.yml", ".tflint.hcl"]
+  push:
+    branches: [main]
+    paths: ["infra/**", ".github/workflows/terraform.yml", ".tflint.hcl"]
+
+permissions:
+  contents: read
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_VAR_admin_cidr: ${{ vars.TF_ADMIN_CIDR || '203.0.113.10/32' }}
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+      - uses: terraform-linters/setup-tflint@v4
+      - name: fmt
+        run: terraform fmt -check -recursive infra
+      - name: validate and tflint
+        run: |
+          tflint --init
+          for dir in infra/*/; do
+            ls "$dir"*.tf >/dev/null 2>&1 || continue
+            echo "::group::$dir"
+            terraform -chdir="$dir" init -backend=false -input=false
+            terraform -chdir="$dir" validate
+            tflint --chdir="$dir"
+            echo "::endgroup::"
+          done
+
+  plan:
+    if: github.event_name == 'pull_request'
+    needs: static
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        root: [sandbox, detector]
+    steps:
+      - uses: actions/checkout@v4
+      - name: has terraform files
+        id: has
+        run: |
+          if ls infra/${{ matrix.root }}/*.tf >/dev/null 2>&1; then echo "found=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: hashicorp/setup-terraform@v3
+        if: steps.has.outputs.found == 'true'
+        with:
+          terraform_version: "~1.10"
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: steps.has.outputs.found == 'true'
+        with:
+          role-to-assume: ${{ vars.CLICKOPS_CI_ROLE_ARN }}
+          aws-region: ap-south-1
+      - name: plan
+        if: steps.has.outputs.found == 'true'
+        working-directory: infra/${{ matrix.root }}
+        run: |
+          terraform init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="region=ap-south-1"
+          set +e
+          terraform plan -input=false -no-color -lock-timeout=60s -detailed-exitcode > "$RUNNER_TEMP/plan.txt" 2>&1
+          code=$?
+          set -e
+          cat "$RUNNER_TEMP/plan.txt"
+          # exit code 2 means changes are pending, which is not a failure
+          if [ "$code" -eq 1 ]; then exit 1; fi
+      - name: comment plan
+        if: steps.has.outputs.found == 'true' && always()
+        uses: actions/github-script@v7
+        env:
+          ROOT: ${{ matrix.root }}
+        with:
+          script: |
+            const fs = require('fs');
+            const file = `${process.env.RUNNER_TEMP}/plan.txt`;
+            let plan = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '(no plan output)';
+            if (plan.length > 60000) plan = plan.slice(0, 60000) + '\n... truncated';
+            const marker = `<!-- terraform-plan:${process.env.ROOT} -->`;
+            const body = `${marker}\n### Terraform plan: \`${process.env.ROOT}\`\n\n\`\`\`\n${plan}\n\`\`\``;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.startsWith(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+  apply-sandbox:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: static
+    runs-on: ubuntu-latest
+    concurrency: terraform-sandbox
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.CLICKOPS_CI_ROLE_ARN }}
+          aws-region: ap-south-1
+      - name: apply
+        working-directory: infra/sandbox
+        run: |
+          terraform init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="region=ap-south-1"
+          terraform apply -input=false -auto-approve -no-color -lock-timeout=60s
