@@ -99,3 +99,21 @@
 **Needs the human**
 - Set repository variables `CLICKOPS_CI_ROLE_ARN`, `TF_STATE_BUCKET` and `TF_ADMIN_CIDR` (same value the sandbox was applied with, or the first CI plan will show a rule change).
 - "Done when": open a PR that changes one sandbox tag, confirm the plan comment appears, merge it, and confirm the apply job succeeds. Expect to widen `clickops-ci` if the plan hits AccessDenied (Day 24 tightens it later).
+
+## Day 6: CloudTrail fixture library
+
+**Built**
+- 40 synthetic fixtures in `tests/fixtures/cloudtrail/<service>/<EventName>.json` (ec2, iam, s3, lambda, route53), one for every event in the coverage table, shaped as EventBridge "AWS API Call via CloudTrail" events with `_source: synthetic`. Lambda events keep their API-version suffixes. Three `*.console.json` variants (`AuthorizeSecurityGroupIngress`, `AttachRolePolicy`, `PutBucketPublicAccessBlock`) set `sessionCredentialFromConsole: "true"`. IAM and Route 53 events are in `us-east-1`.
+- `scripts/gen_synthetic_fixtures.py` regenerates the synthetic set deterministically and never overwrites a file marked `real`.
+- `scripts/make_fixture_events.sh` (needs `CONFIRM=yes` and approval) makes each watched write call once against scratch resources and the sandbox, then `scripts/fetch_fixtures.py` pulls the events from `lookup-events`, replaces account IDs and access keys with placeholders and saves them as `_source: real`.
+- `tests/test_fixtures.py`: every fixture parses as CloudTrail JSON, every coverage-table event has a fixture, at least two console-human fixtures exist. `tests/test_fetch_fixtures.py` covers scrubbing and the envelope.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 128 passed.
+
+**Deviations**
+- Every fixture is synthetic for now because there are no AWS credentials. The recording script keeps `RunInstances`, `TerminateInstances`, `CreateHostedZone` and `DeleteHostedZone` synthetic on purpose (cost and safety); the other events can be replaced with real ones.
+- Fixtures use the EventBridge envelope (what the detector receives), not the raw `lookup-events` record.
+
+**Needs the human**
+- Approve and run `CONFIRM=yes AWS_PROFILE=clickops-admin scripts/make_fixture_events.sh` (it creates and deletes scratch resources and briefly starts the stopped sandbox instance), then `terraform apply` in `infra/sandbox` to undo the Lambda and Route 53 changes. Check the saved real fixtures before committing them (the script scrubs account IDs and keys, but look for anything else sensitive such as IPs or user names).
