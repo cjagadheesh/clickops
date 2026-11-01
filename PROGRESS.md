@@ -117,3 +117,35 @@
 
 **Needs the human**
 - Approve and run `CONFIRM=yes AWS_PROFILE=clickops-admin scripts/make_fixture_events.sh` (it creates and deletes scratch resources and briefly starts the stopped sandbox instance), then `terraform apply` in `infra/sandbox` to undo the Lambda and Route 53 changes. Check the saved real fixtures before committing them (the script scrubs account IDs and keys, but look for anything else sensitive such as IPs or user names).
+
+## Day 7: buffer and week-1 review
+
+**Built**
+- `docs/architecture.md`: Mermaid diagram of the event flow (including the `us-east-1` forwarding path and the DLQ) and of the three Terraform roots, plus the outcome table and actor order. `tests/test_architecture_doc.py` keeps both diagrams and every pipeline stage in the doc.
+- Nothing from Days 1-6 was left unfinished in code.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 129 passed.
+
+**Week-1 summary (Days 1-7)**
+
+| Day | Code and docs | "Done when" status |
+| --- | --- | --- |
+| 1 scaffold | done | `make check` passes; green CI on GitHub not confirmable from here |
+| 2 models, config, `doctor` | done | unit tests cover valid and invalid configs; `doctor` runs against moto |
+| 3 bootstrap | done | needs the human: apply, then run the `oidc-check` workflow |
+| 4 sandbox | done | needs the human: apply, then a second `plan` showing no changes |
+| 5 Terraform CI | done | needs the human: set repo variables, run the tag-change PR |
+| 6 fixtures | done (all synthetic) | every coverage-table event has a fixture and a test confirms they parse; real recordings need the human |
+| 7 review | done | this summary |
+
+- The repo owner has already pushed Terraform lock files for `bootstrap` and `sandbox` and some config and doctor fixes, which suggests `terraform init` ran locally. No file records whether either apply happened.
+
+**Blocked on AWS (needs the human)**
+- Confirm Days 3 and 4 applied cleanly and that the sandbox costs what `docs/cost.md` predicts: one `aws ce get-cost-and-usage` call (USD 0.01) after the sandbox has run a few days; update `docs/cost.md` if it differs.
+- Record real fixtures with `scripts/make_fixture_events.sh` (Day 6), then `terraform apply` in `infra/sandbox` to undo the changes.
+- Check the Day 1 PR/Actions run is green and the Day 5 PR check works.
+
+**Deviations**
+- Work is committed straight to `main` rather than `day-NN` branches and PRs, as the scheduled instructions require, so "PR shows green CI" checks are replaced by checking the Actions tab on `main`.
+- The identity on commits follows the schedule prompt (`cjagadheesh <jagadheeeeesh@gmail.com>`); the owner earlier asked for `jagadheeshc07@gmail.com`, so one of the two needs updating.
