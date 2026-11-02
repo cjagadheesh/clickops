@@ -149,3 +149,19 @@
 **Deviations**
 - Work is committed straight to `main` rather than `day-NN` branches and PRs, as the scheduled instructions require, so "PR shows green CI" checks are replaced by checking the Actions tab on `main`.
 - The identity on commits follows the schedule prompt (`cjagadheesh <jagadheeeeesh@gmail.com>`); the owner earlier asked for `jagadheeshc07@gmail.com`, so one of the two needs updating.
+
+## Day 8: event normalizer
+
+**Built**
+- `clickops/events.py`: `normalize(raw)` turns an EventBridge "AWS API Call via CloudTrail" event into a `NormalizedEvent` (event ID, time, source, name, region, account, user identity, request and response parameters, source IP, user agent). It returns `None` for a call with an `errorCode`, strips Lambda version suffixes (`UpdateFunctionConfiguration20150331v2` becomes `UpdateFunctionConfiguration`), and raises `NormalizationError` for events that are not CloudTrail calls or lack a required field, so the handler can let those fail into the DLQ later.
+- `tests/conftest.py` fixture helpers.
+- `tests/test_events.py`: all 40 fixtures normalize, with field assertions for ec2, iam, s3, lambda and route53 fixtures, plus failed-call, missing-field and bad-timestamp cases.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 186 passed.
+
+**Deviations**
+- None. The normalizer accepts the EventBridge envelope (the format of the fixtures and of what the Lambda receives).
+
+**Open issues / needs the human**
+- None new. Real fixtures from Day 6 should also normalize; rerun `make check` after recording them.
