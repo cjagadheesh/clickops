@@ -41,6 +41,11 @@ def normalize(raw: dict[str, Any]) -> NormalizedEvent | None:
     if detail.get("errorCode"):
         return None
 
+    identity = dict(detail.get("userIdentity") or {})
+    # Real records can carry the console flag next to userIdentity rather than inside it.
+    if "sessionCredentialFromConsole" in detail:
+        identity.setdefault("sessionCredentialFromConsole", detail["sessionCredentialFromConsole"])
+
     try:
         return NormalizedEvent(
             event_id=_required(detail, "eventID"),
@@ -49,7 +54,7 @@ def normalize(raw: dict[str, Any]) -> NormalizedEvent | None:
             name=base_event_name(_required(detail, "eventName")),
             region=_required(detail, "awsRegion"),
             account=raw.get("account") or _required(detail, "recipientAccountId"),
-            user_identity=detail.get("userIdentity") or {},
+            user_identity=identity,
             request_parameters=detail.get("requestParameters") or {},
             response_elements=detail.get("responseElements") or {},
             error_code=None,
