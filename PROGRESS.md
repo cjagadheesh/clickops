@@ -165,3 +165,20 @@
 
 **Open issues / needs the human**
 - None new. Real fixtures from Day 6 should also normalize; rerun `make check` after recording them.
+
+## Day 9: actor classifier
+
+**Built**
+- `clickops/actors.py`: `classify(event, trusted_roles, self_role_arn)` applies `clickops-self`, `ci`, `aws-service`, `console-human`, `cli-human` in that order and returns an `Actor` with a display name. The detector's own role ARN comes from the `self_role_arn` argument or the `CLICKOPS_SELF_ROLE_ARN` environment variable. CI is a role named `clickops-ci` or a trusted role from `clickops.yaml`; roles are compared by account and role name, so IAM paths and STS ARNs both match. AWS service means `type: AWSService`, `invokedBy` set, or a service-linked role (`/aws-service-role/`). Display names: IAM user name, the session name for assumed roles (for `AWSReservedSSO_*` that is the person's login), the invoking service, or `root`.
+- Four new fixtures for the edge cases: `AuthorizeSecurityGroupIngress.ci` (GitHub Actions), `StopInstances.service-linked`, `AuthorizeSecurityGroupIngress.cloudformation` (`invokedBy`) and `PutRolePolicy.self`; the generator writes them.
+- `events.normalize` now keeps a record-level `sessionCredentialFromConsole` in the user identity.
+- `tests/test_actors.py`: a parametrised test gives every fixture an expected class and name, plus precedence, trusted-role, IAM-path, environment and top-level-flag cases.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 249 passed.
+
+**Deviations**
+- Fixtures place `sessionCredentialFromConsole` inside `userIdentity.sessionContext.attributes`, but real records may carry it beside `userIdentity`. The classifier and normalizer accept both.
+
+**Open issues / needs the human**
+- When real fixtures are recorded, check where the real record puts `sessionCredentialFromConsole` (and the real shape of an Identity Center console session) and adjust the synthetic ones to match.
