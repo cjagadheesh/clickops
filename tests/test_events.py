@@ -99,3 +99,11 @@ def test_bad_time_raises() -> None:
     raw["detail"]["eventTime"] = "not a time"
     with pytest.raises(NormalizationError):
         normalize(raw)
+
+
+def test_top_level_console_flag_is_kept_in_identity() -> None:
+    raw = copy.deepcopy(load_fixture("ec2", "StopInstances"))
+    raw["detail"]["sessionCredentialFromConsole"] = "true"
+    event = normalize(raw)
+    assert event is not None
+    assert event.user_identity["sessionCredentialFromConsole"] == "true"
