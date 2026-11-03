@@ -26,7 +26,59 @@ FUNCTION = "clickops-sandbox-hello"
 
 
 def identity(kind: str) -> dict[str, Any]:
-    """User identity for an Identity Center person on the console or the CLI."""
+    """User identity for a person (console or CLI) or one of the non-human actor kinds."""
+    if kind == "cloudformation":
+        return {
+            "type": "AssumedRole",
+            "principalId": "AROAEXAMPLEEXAMPLE:AWSCloudFormation",
+            "arn": f"arn:aws:sts::{ACCOUNT}:assumed-role/{SSO_ROLE}/asha@example.com",
+            "accountId": ACCOUNT,
+            "accessKeyId": "ASIAEXAMPLEEXAMPLE",
+            "invokedBy": "cloudformation.amazonaws.com",
+            "sessionContext": {"attributes": {"mfaAuthenticated": "false"}},
+        }
+    if kind == "service-linked":
+        issuer = (
+            f"arn:aws:iam::{ACCOUNT}:role/aws-service-role/autoscaling.amazonaws.com/"
+            "AWSServiceRoleForAutoScaling"
+        )
+        return {
+            "type": "AssumedRole",
+            "principalId": "AROAEXAMPLEEXAMPLE:AutoScaling",
+            "arn": f"arn:aws:sts::{ACCOUNT}:assumed-role/AWSServiceRoleForAutoScaling/AutoScaling",
+            "accountId": ACCOUNT,
+            "accessKeyId": "ASIAEXAMPLEEXAMPLE",
+            "sessionContext": {
+                "attributes": {"mfaAuthenticated": "false"},
+                "sessionIssuer": {
+                    "type": "Role",
+                    "principalId": "AROAEXAMPLEEXAMPLE",
+                    "arn": issuer,
+                    "accountId": ACCOUNT,
+                    "userName": "AWSServiceRoleForAutoScaling",
+                },
+            },
+        }
+    if kind in ("ci", "self"):
+        role = "clickops-ci" if kind == "ci" else "clickops-detector"
+        session = "GitHubActions" if kind == "ci" else "clickops-detector"
+        return {
+            "type": "AssumedRole",
+            "principalId": f"AROAEXAMPLEEXAMPLE:{session}",
+            "arn": f"arn:aws:sts::{ACCOUNT}:assumed-role/{role}/{session}",
+            "accountId": ACCOUNT,
+            "accessKeyId": "ASIAEXAMPLEEXAMPLE",
+            "sessionContext": {
+                "attributes": {"mfaAuthenticated": "false"},
+                "sessionIssuer": {
+                    "type": "Role",
+                    "principalId": "AROAEXAMPLEEXAMPLE",
+                    "arn": f"arn:aws:iam::{ACCOUNT}:role/{role}",
+                    "accountId": ACCOUNT,
+                    "userName": role,
+                },
+            },
+        }
     arn = f"arn:aws:sts::{ACCOUNT}:assumed-role/{SSO_ROLE}/asha@example.com"
     ctx: dict[str, Any] = {
         "attributes": {"creationDate": "2026-10-26T04:00:00Z", "mfaAuthenticated": "false"},
@@ -516,8 +568,24 @@ def build() -> list[tuple[str, str, dict[str, Any]]]:
     ]
 
 
+ACTOR_VARIANTS = [
+    ("ec2", "AuthorizeSecurityGroupIngress", "ci"),
+    ("ec2", "StopInstances", "service-linked"),
+    ("ec2", "AuthorizeSecurityGroupIngress", "cloudformation"),
+    ("iam", "PutRolePolicy", "self"),
+]
+
+
+def with_actor_variants() -> list[tuple[str, str, dict[str, Any]]]:
+    rows = build()
+    index = {(d, stem): kw for d, stem, kw in rows}
+    for dirname, stem, actor in ACTOR_VARIANTS:
+        rows.append((dirname, f"{stem}.{actor}", dict(index[(dirname, stem)], actor=actor)))
+    return rows
+
+
 def main() -> None:
-    for dirname, stem, kwargs in build():
+    for dirname, stem, kwargs in with_actor_variants():
         path = OUT / dirname / f"{stem}.json"
         if path.exists() and json.loads(path.read_text()).get("_source") == "real":
             continue
