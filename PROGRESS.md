@@ -182,3 +182,27 @@
 
 **Open issues / needs the human**
 - When real fixtures are recorded, check where the real record puts `sessionCredentialFromConsole` (and the real shape of an Identity Center console session) and adjust the synthetic ones to match.
+
+## Day 10: detector storage and trail
+
+**Built**
+- `infra/detector/` (S3 backend, state key `detector/terraform.tfstate`, bucket and region from the gitignored `backend.hcl`):
+  - a multi-region CloudTrail trail `clickops-trail` for write-only management events with log file validation, logging to `clickops-trail-<account-id>` (SSE-S3, Block Public Access, 30-day expiry, the standard CloudTrail bucket policy scoped to the trail ARN, TLS-only);
+  - the DynamoDB table `clickops-events`: on-demand, partition key `resource_key`, sort key `sk` (`ts#event_id`), GSI `day-ts` (`day` + `ts`), TTL attribute `expires_at`;
+  - the SNS topic `clickops-critical` with an email subscription to `alert_email` from the gitignored `detector.auto.tfvars` (an example file and README are committed).
+- `clickops/store.py`: the table schema (`TABLE_DEFINITION`), attribute names and the key builders `sort_key`, `day_of`, `utc_iso`, `expires_at` (90-day TTL), all in UTC.
+- Tests: `tests/test_store_schema.py` checks the key builders, that the Terraform table matches the Python schema, and that the schema supports a per-resource query and a per-day range query against moto. `tests/test_detector_infra.py` checks the trail, bucket, table and topic settings in the Terraform text.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 259 passed.
+
+**Deviations**
+- The sort key attribute is named `sk` (the plan only says "sort key `ts#event_id`").
+- The trail lives in `ap-south-1` and `include_global_service_events` is on so IAM events are captured; the moment IAM and Route 53 events reach EventBridge is verified on Day 12.
+- Terraform is not installed here, so `fmt`, `validate` and `plan` were not run on these files.
+- One commit (the detector infra test) was pushed while a retention-default assertion was failing; the next commit fixed it. No other commit was red.
+
+**Needs the human**
+- Copy `detector.auto.tfvars.example` to `detector.auto.tfvars`, set `alert_email`, copy `backend.hcl.example` to `backend.hcl`, then run `terraform init -backend-config=backend.hcl`, `validate` and `plan` in `infra/detector` and approve the apply.
+- Click the confirmation link in the SNS subscription email. "Done when": `terraform plan` is clean and the subscription is confirmed.
+- With the detector root now present, the Day 5 PR plan job will start planning it; it needs `detector.auto.tfvars` values too, so set a repository variable or add `TF_VAR_alert_email` for the workflow (not yet wired).
