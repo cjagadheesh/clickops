@@ -1,1 +1,60 @@
-"""Placeholder; implemented on a later day."""
+"""Layout of the DynamoDB event log ``clickops-events`` and its key builders."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+TABLE_NAME = "clickops-events"
+TTL_DAYS = 90
+DAY_INDEX = "day-ts"
+
+# Attribute names, shared with infra/detector/events_table.tf.
+HASH_KEY = "resource_key"
+RANGE_KEY = "sk"
+DAY_ATTR = "day"
+TS_ATTR = "ts"
+TTL_ATTR = "expires_at"
+
+TABLE_DEFINITION: dict[str, Any] = {
+    "TableName": TABLE_NAME,
+    "BillingMode": "PAY_PER_REQUEST",
+    "KeySchema": [
+        {"AttributeName": HASH_KEY, "KeyType": "HASH"},
+        {"AttributeName": RANGE_KEY, "KeyType": "RANGE"},
+    ],
+    "AttributeDefinitions": [
+        {"AttributeName": HASH_KEY, "AttributeType": "S"},
+        {"AttributeName": RANGE_KEY, "AttributeType": "S"},
+        {"AttributeName": DAY_ATTR, "AttributeType": "S"},
+        {"AttributeName": TS_ATTR, "AttributeType": "S"},
+    ],
+    "GlobalSecondaryIndexes": [
+        {
+            "IndexName": DAY_INDEX,
+            "KeySchema": [
+                {"AttributeName": DAY_ATTR, "KeyType": "HASH"},
+                {"AttributeName": TS_ATTR, "KeyType": "RANGE"},
+            ],
+            "Projection": {"ProjectionType": "ALL"},
+        }
+    ],
+}
+
+
+def utc_iso(when: datetime) -> str:
+    """Timestamp in a sortable, fixed-width UTC form: 2026-10-26T10:15:30Z."""
+    return when.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def sort_key(when: datetime, event_id: str) -> str:
+    return f"{utc_iso(when)}#{event_id}"
+
+
+def day_of(when: datetime) -> str:
+    return when.astimezone(UTC).strftime("%Y-%m-%d")
+
+
+def expires_at(when: datetime, days: int = TTL_DAYS) -> int:
+    """Epoch seconds after which DynamoDB may delete the item."""
+    return int((when.astimezone(UTC) + timedelta(days=days)).timestamp())
