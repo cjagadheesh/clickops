@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 DETECTOR = Path(__file__).resolve().parent.parent / "infra" / "detector"
@@ -21,7 +22,7 @@ def test_trail_bucket_expires_logs_and_blocks_public_access() -> None:
     assert "block_public_policy     = true" in tf
     assert "AWSCloudTrailWrite" in tf and "cloudtrail.amazonaws.com" in tf
     assert "aws:SecureTransport" in tf
-    assert "default     = 30" in _read("variables.tf")
+    assert re.search(r"trail_log_retention_days.*?default\s*=\s*30", _read("variables.tf"), re.S)
 
 
 def test_events_table_has_ttl_and_day_index() -> None:
