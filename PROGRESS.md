@@ -205,4 +205,4 @@
 **Needs the human**
 - Copy `detector.auto.tfvars.example` to `detector.auto.tfvars`, set `alert_email`, copy `backend.hcl.example` to `backend.hcl`, then run `terraform init -backend-config=backend.hcl`, `validate` and `plan` in `infra/detector` and approve the apply.
 - Click the confirmation link in the SNS subscription email. "Done when": `terraform plan` is clean and the subscription is confirmed.
-- With the detector root now present, the Day 5 PR plan job will start planning it; it needs `detector.auto.tfvars` values too, so set a repository variable or add `TF_VAR_alert_email` for the workflow (not yet wired).
+- With the detector root now present, the Day 5 PR plan job will start planning it; set the repository variable `TF_ALERT_EMAIL` (the workflow passes it as `TF_VAR_alert_email`, falling back to a placeholder so `validate` and `plan` still run).
