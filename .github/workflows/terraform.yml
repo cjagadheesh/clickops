@@ -4,6 +4,7 @@ name: terraform
 #   CLICKOPS_CI_ROLE_ARN  ci_role_arn output of infra/bootstrap
 #   TF_STATE_BUCKET       state_bucket output of infra/bootstrap
 #   TF_ADMIN_CIDR         the sandbox admin /32 (must match what the sandbox was applied with)
+#   TF_ALERT_EMAIL        address for critical alerts (detector root)
 on:
   pull_request:
     paths: ["infra/**", ".github/workflows/terraform.yml", ".tflint.hcl"]
@@ -17,6 +18,7 @@ permissions:
 env:
   TF_IN_AUTOMATION: "true"
   TF_VAR_admin_cidr: ${{ vars.TF_ADMIN_CIDR || '203.0.113.10/32' }}
+  TF_VAR_alert_email: ${{ vars.TF_ALERT_EMAIL || 'unset@example.com' }}
 
 jobs:
   static:
