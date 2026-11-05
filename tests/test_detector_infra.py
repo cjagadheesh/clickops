@@ -43,3 +43,33 @@ def test_detector_uses_its_own_state_key_and_no_email_is_committed() -> None:
     assert 'key          = "detector/terraform.tfstate"' in _read("versions.tf")
     example = _read("detector.auto.tfvars.example")
     assert "you@example.com" in example
+
+
+def test_lambda_settings_match_the_spec() -> None:
+    tf = _read("lambda.tf")
+    assert 'runtime          = "python3.12"' in tf
+    assert 'architectures    = ["arm64"]' in tf
+    assert "memory_size      = 256" in tf
+    assert "timeout          = 30" in tf
+    assert "retention_in_days = 14" in tf
+    assert "dead_letter_config" in tf
+    assert 'handler          = "clickops.handler.handler"' in tf
+
+
+def test_lambda_role_is_limited_to_logs_dynamodb_put_and_dlq() -> None:
+    tf = _read("lambda_role.tf")
+    assert '"dynamodb:PutItem"' in tf
+    assert "logs:CreateLogStream" in tf and "logs:PutLogEvents" in tf
+    assert "sqs:SendMessage" in tf
+    for broad in ('"dynamodb:*"', '"logs:*"', '"s3:*"', '"*"'):
+        assert broad not in tf
+
+
+def test_lambda_env_names_match_the_code() -> None:
+    from clickops import handler
+    from clickops.actors import SELF_ROLE_ENV
+    from clickops.store import TABLE_NAME
+
+    tf = _read("lambda.tf")
+    assert handler.TABLE_ENV in tf and handler.TRUSTED_ROLES_ENV in tf and SELF_ROLE_ENV in tf
+    assert TABLE_NAME == "clickops-events"
