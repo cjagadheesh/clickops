@@ -13,3 +13,11 @@ output "critical_topic_arn" {
 output "trail_bucket" {
   value = aws_s3_bucket.trail.bucket
 }
+
+output "detector_function" {
+  value = aws_lambda_function.detector.function_name
+}
+
+output "dlq_url" {
+  value = aws_sqs_queue.dlq.url
+}
