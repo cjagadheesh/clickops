@@ -206,3 +206,25 @@
 - Copy `detector.auto.tfvars.example` to `detector.auto.tfvars`, set `alert_email`, copy `backend.hcl.example` to `backend.hcl`, then run `terraform init -backend-config=backend.hcl`, `validate` and `plan` in `infra/detector` and approve the apply.
 - Click the confirmation link in the SNS subscription email. "Done when": `terraform plan` is clean and the subscription is confirmed.
 - With the detector root now present, the Day 5 PR plan job will start planning it; set the repository variable `TF_ALERT_EMAIL` (the workflow passes it as `TF_VAR_alert_email`, falling back to a placeholder so `validate` and `plan` still run).
+
+## Day 11: Lambda skeleton and packaging
+
+**Built**
+- `clickops/handler.py`: `handler` normalizes the event, classifies the actor and stores an item with outcome `unresolved` (severity `none`, resource key `unresolved#<EventName>`), then logs one structured JSON line. Failed calls are dropped, a retry of an already stored event is a no-op (conditional write), and a malformed event raises so Lambda retries it and then sends it to the DLQ. Trusted roles come from `CLICKOPS_TRUSTED_ROLES`, the table from `CLICKOPS_TABLE` and the detector's own role from `CLICKOPS_SELF_ROLE_ARN`.
+- `clickops/store.py`: `build_item` and `put_event`.
+- `scripts/build_lambda.sh`: exports the locked runtime dependencies (without boto3 and the CLI-only libraries), installs arm64 wheels for Python 3.12 into `build/lambda`, copies the package and writes `dist/clickops-detector.zip` with sorted entries and fixed timestamps. Two consecutive builds here gave the same sha256 (`6655fba8159adc13...`).
+- `infra/detector/`: Lambda `clickops-detector` (Python 3.12, arm64, 256 MB, 30 s), log group with 14-day retention, SQS dead-letter queue `clickops-detector-dlq`, and an execution role with CloudWatch Logs writes, DynamoDB `PutItem` and `sqs:SendMessage` on the DLQ.
+- `scripts/invoke_fixture.sh`: invokes the deployed Lambda with a fixture and prints the stored item.
+- CI: the detector plan job builds the Lambda zip first.
+- `tests/test_handler.py`: stored fields, retries, dropped and malformed events, the log line and every fixture against moto; infra tests check Lambda settings, role scope and environment variable names.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 313 passed.
+
+**Deviations**
+- The role also has `sqs:SendMessage` on the DLQ (the plan lists only logs and `PutItem`) because Lambda needs it to deliver failed asynchronous invocations to the dead-letter queue.
+- Terraform is not installed here, so `fmt`, `validate` and `plan` were not run on the new files; I aligned the environment block by hand to match `terraform fmt`.
+
+**Needs the human**
+- Run `scripts/build_lambda.sh`, then `terraform plan` and, after approval, `terraform apply` in `infra/detector`.
+- "Done when": run `AWS_PROFILE=clickops-admin scripts/invoke_fixture.sh ec2/AuthorizeSecurityGroupIngress` and confirm the item appears with outcome `unresolved`. (The script and the Lambda write a real item to `clickops-events`.)
