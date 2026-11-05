@@ -19,7 +19,6 @@ DAY=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['detail'][
 
 aws dynamodb query --region $REGION --table-name clickops-events --index-name day-ts \
   --key-condition-expression '#d = :d' --expression-attribute-names '{"#d":"day"}' \
-  --expression-attribute-values "{\":d\":{\"S\":\"$DAY\"}}" \
   --filter-expression 'event_id = :e' \
   --expression-attribute-values "{\":d\":{\"S\":\"$DAY\"},\":e\":{\"S\":\"$EVENT_ID\"}}" \
   --query 'Items[0]'
