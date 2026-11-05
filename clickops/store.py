@@ -58,3 +58,35 @@ def day_of(when: datetime) -> str:
 def expires_at(when: datetime, days: int = TTL_DAYS) -> int:
     """Epoch seconds after which DynamoDB may delete the item."""
     return int((when.astimezone(UTC) + timedelta(days=days)).timestamp())
+
+
+def build_item(
+    *,
+    resource_key: str,
+    event_id: str,
+    when: datetime,
+    fields: dict[str, Any],
+) -> dict[str, Any]:
+    """A DynamoDB item with the key, day, timestamp and TTL attributes filled in."""
+    return {
+        HASH_KEY: resource_key,
+        RANGE_KEY: sort_key(when, event_id),
+        DAY_ATTR: day_of(when),
+        TS_ATTR: utc_iso(when),
+        TTL_ATTR: expires_at(when),
+        "event_id": event_id,
+        **{k: v for k, v in fields.items() if v is not None},
+    }
+
+
+def put_event(table: Any, item: dict[str, Any]) -> bool:
+    """Write an item once. Returns False when this event was already stored (a Lambda retry)."""
+    try:
+        table.put_item(
+            Item=item,
+            ConditionExpression="attribute_not_exists(#sk)",
+            ExpressionAttributeNames={"#sk": RANGE_KEY},
+        )
+    except table.meta.client.exceptions.ConditionalCheckFailedException:
+        return False
+    return True
