@@ -23,3 +23,15 @@ variable "event_ttl_days" {
   type        = number
   default     = 90
 }
+
+variable "lambda_zip" {
+  description = "Path to the zip built by scripts/build_lambda.sh."
+  type        = string
+  default     = "../../dist/clickops-detector.zip"
+}
+
+variable "trusted_role_arns" {
+  description = "Extra role ARNs treated as CI, in addition to clickops-ci."
+  type        = list(string)
+  default     = []
+}
