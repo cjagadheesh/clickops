@@ -61,6 +61,13 @@ jobs:
         id: has
         run: |
           if ls infra/${{ matrix.root }}/*.tf >/dev/null 2>&1; then echo "found=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: astral-sh/setup-uv@v5
+        if: steps.has.outputs.found == 'true' && matrix.root == 'detector'
+      - name: build Lambda package
+        if: steps.has.outputs.found == 'true' && matrix.root == 'detector'
+        run: |
+          uv python install 3.12
+          scripts/build_lambda.sh
       - uses: hashicorp/setup-terraform@v3
         if: steps.has.outputs.found == 'true'
         with:
