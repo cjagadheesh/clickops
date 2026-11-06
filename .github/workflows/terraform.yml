@@ -78,6 +78,9 @@ jobs:
         with:
           role-to-assume: ${{ vars.CLICKOPS_CI_ROLE_ARN }}
           aws-region: ap-south-1
+      - name: check event patterns against fixtures
+        if: steps.has.outputs.found == 'true' && matrix.root == 'detector'
+        run: scripts/test_event_patterns.sh
       - name: plan
         if: steps.has.outputs.found == 'true'
         working-directory: infra/${{ matrix.root }}
