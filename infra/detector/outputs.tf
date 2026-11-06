@@ -21,3 +21,11 @@ output "detector_function" {
 output "dlq_url" {
   value = aws_sqs_queue.dlq.url
 }
+
+output "event_rules" {
+  value = {
+    regional = aws_cloudwatch_event_rule.regional.name
+    global   = aws_cloudwatch_event_rule.global.name
+    forward  = aws_cloudwatch_event_rule.forward.name
+  }
+}
