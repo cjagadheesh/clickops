@@ -1,0 +1,49 @@
+{
+  "detail-type": [
+    "AWS API Call via CloudTrail"
+  ],
+  "source": [
+    "aws.ec2",
+    "aws.s3",
+    "aws.lambda"
+  ],
+  "detail": {
+    "eventName": [
+      "CreateSecurityGroup",
+      "DeleteSecurityGroup",
+      "AuthorizeSecurityGroupIngress",
+      "AuthorizeSecurityGroupEgress",
+      "RevokeSecurityGroupIngress",
+      "RevokeSecurityGroupEgress",
+      "ModifySecurityGroupRules",
+      "RunInstances",
+      "TerminateInstances",
+      "ModifyInstanceAttribute",
+      "StartInstances",
+      "StopInstances",
+      "CreateBucket",
+      "DeleteBucket",
+      "PutBucketPolicy",
+      "DeleteBucketPolicy",
+      "PutBucketPublicAccessBlock",
+      "DeleteBucketPublicAccessBlock",
+      "PutBucketVersioning",
+      "PutBucketEncryption",
+      {
+        "prefix": "CreateFunction"
+      },
+      {
+        "prefix": "DeleteFunction"
+      },
+      {
+        "prefix": "UpdateFunctionConfiguration"
+      },
+      {
+        "prefix": "UpdateFunctionCode"
+      },
+      {
+        "prefix": "AddPermission"
+      }
+    ]
+  }
+}

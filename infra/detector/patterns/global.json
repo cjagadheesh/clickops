@@ -1,0 +1,25 @@
+{
+  "detail-type": [
+    "AWS API Call via CloudTrail"
+  ],
+  "source": [
+    "aws.iam",
+    "aws.route53"
+  ],
+  "detail": {
+    "eventName": [
+      "CreateRole",
+      "DeleteRole",
+      "UpdateAssumeRolePolicy",
+      "PutRolePolicy",
+      "DeleteRolePolicy",
+      "AttachRolePolicy",
+      "DetachRolePolicy",
+      "CreatePolicy",
+      "CreatePolicyVersion",
+      "ChangeResourceRecordSets",
+      "CreateHostedZone",
+      "DeleteHostedZone"
+    ]
+  }
+}
