@@ -228,3 +228,22 @@
 **Needs the human**
 - Run `scripts/build_lambda.sh`, then `terraform plan` and, after approval, `terraform apply` in `infra/detector`.
 - "Done when": run `AWS_PROFILE=clickops-admin scripts/invoke_fixture.sh ec2/AuthorizeSecurityGroupIngress` and confirm the item appears with outcome `unresolved`. (The script and the Lambda write a real item to `clickops-events`.)
+
+## Day 12: EventBridge rules
+
+**Built**
+- `infra/detector/patterns/regional.json` and `global.json`: the event patterns (detail-type "AWS API Call via CloudTrail", the watched event names, Lambda names matched with `prefix`). Terraform loads the same files, so tests and rules cannot drift.
+- `infra/detector/rules.tf`: in `ap-south-1`, rule `clickops-regional` (`aws.ec2`, `aws.s3`, `aws.lambda`) and rule `clickops-global` (forwarded `aws.iam` and `aws.route53`), both targeting `clickops-detector` with the DLQ attached, a retry policy and a Lambda invoke permission scoped to each rule; an SQS queue policy letting EventBridge deliver dead letters. In `us-east-1` (provider alias `use1`), rule `clickops-forward-global` targeting the `ap-south-1` default bus through the role `clickops-event-forwarder`, which only has `events:PutEvents` on that bus.
+- `tests/eventpattern.py`: an offline matcher for exact and prefix patterns. `tests/test_event_patterns.py` checks every fixture matches exactly the right rules and none of the others: ec2, s3 and lambda match only `regional`; iam and route53 match only the us-east-1 forwarder and, once forwarded, only `global`; unwatched, read-only and wrong-detail-type events match nothing; every watched event name is in a pattern.
+- `scripts/test_event_patterns.sh`: runs every fixture through `aws events test-event-pattern` (read-only); CI runs it on detector pull requests.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 365 passed.
+
+**Deviations**
+- The plan asks for the real `test-event-pattern` call in CI; with no AWS access here the committed tests use an offline matcher with the same semantics (exact values and prefix), and the AWS script is the cross-check for the human or CI.
+- The forwarding rule has no DLQ: a rule's dead-letter queue must be in the rule's own region, and the only queue is in `ap-south-1`.
+
+**Needs the human**
+- Apply `infra/detector` (the rules reference the Lambda and DLQ), then run `AWS_PROFILE=clickops-admin scripts/test_event_patterns.sh`. "Done when": it prints "all fixtures match the expected patterns".
+- After the apply, confirm in the console or with `aws events list-rules` in both regions that the three rules are enabled.
