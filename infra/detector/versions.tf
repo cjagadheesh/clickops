@@ -28,3 +28,16 @@ provider "aws" {
 }
 
 data "aws_caller_identity" "current" {}
+
+# IAM and Route 53 events are recorded in us-east-1.
+provider "aws" {
+  alias  = "use1"
+  region = "us-east-1"
+
+  default_tags {
+    tags = {
+      project = "clickops"
+      owner   = "agent"
+    }
+  }
+}
