@@ -73,3 +73,33 @@ def test_lambda_env_names_match_the_code() -> None:
     tf = _read("lambda.tf")
     assert handler.TABLE_ENV in tf and handler.TRUSTED_ROLES_ENV in tf and SELF_ROLE_ENV in tf
     assert TABLE_NAME == "clickops-events"
+
+
+def test_rules_target_the_detector_with_a_dlq_and_permission() -> None:
+    tf = _read("rules.tf")
+    assert tf.count("dead_letter_config") == 2
+    assert tf.count('principal     = "events.amazonaws.com"') == 2
+    assert "patterns/regional.json" in tf
+    assert tf.count("patterns/global.json") == 2
+
+
+def test_forwarding_rule_lives_in_us_east_1_and_targets_the_mumbai_bus() -> None:
+    tf = _read("rules.tf")
+    forward = tf[tf.index('resource "aws_cloudwatch_event_rule" "forward"') :]
+    assert "provider       = aws.use1" in forward
+    assert "arn      = local.default_bus_arn" in forward
+    assert "role_arn = aws_iam_role.forwarder.arn" in forward
+    assert 'region = "us-east-1"' in _read("versions.tf")
+    assert 'actions   = ["events:PutEvents"]' in tf
+    assert "resources = [local.default_bus_arn]" in tf
+
+
+def test_pattern_files_are_valid_json_for_cloudtrail_api_calls() -> None:
+    import json
+
+    for name in ("regional", "global"):
+        pattern = json.loads((DETECTOR / "patterns" / f"{name}.json").read_text())
+        assert pattern["detail-type"] == ["AWS API Call via CloudTrail"]
+        assert pattern["detail"]["eventName"]
+    sources = json.loads((DETECTOR / "patterns" / "regional.json").read_text())["source"]
+    assert sources == ["aws.ec2", "aws.s3", "aws.lambda"]
