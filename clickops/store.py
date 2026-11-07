@@ -90,3 +90,32 @@ def put_event(table: Any, item: dict[str, Any]) -> bool:
     except table.meta.client.exceptions.ConditionalCheckFailedException:
         return False
     return True
+
+
+def query_since(table: Any, since: datetime, until: datetime | None = None) -> list[dict[str, Any]]:
+    """Events from ``since`` up to ``until``, oldest first, read through the day index."""
+    end = until or datetime.now(UTC)
+    start_ts = utc_iso(since)
+    end_ts = utc_iso(end)
+    items: list[dict[str, Any]] = []
+    day = since.astimezone(UTC).date()
+    last_day = end.astimezone(UTC).date()
+    while day <= last_day:
+        kwargs: dict[str, Any] = {
+            "IndexName": DAY_INDEX,
+            "KeyConditionExpression": "#d = :d AND #t BETWEEN :from AND :to",
+            "ExpressionAttributeNames": {"#d": DAY_ATTR, "#t": TS_ATTR},
+            "ExpressionAttributeValues": {
+                ":d": day.isoformat(),
+                ":from": start_ts,
+                ":to": end_ts,
+            },
+        }
+        while True:
+            page = table.query(**kwargs)
+            items.extend(page["Items"])
+            if "LastEvaluatedKey" not in page:
+                break
+            kwargs["ExclusiveStartKey"] = page["LastEvaluatedKey"]
+        day += timedelta(days=1)
+    return sorted(items, key=lambda i: (i[TS_ATTR], i[RANGE_KEY]))
