@@ -139,3 +139,32 @@ jobs:
         run: |
           terraform init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="region=ap-south-1"
           terraform apply -input=false -auto-approve -no-color -lock-timeout=60s
+
+  apply-detector:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [static, apply-sandbox]
+    runs-on: ubuntu-latest
+    concurrency: terraform-detector
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: build Lambda package
+        run: |
+          uv python install 3.12
+          scripts/build_lambda.sh
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.CLICKOPS_CI_ROLE_ARN }}
+          aws-region: ap-south-1
+      - name: apply
+        working-directory: infra/detector
+        run: |
+          terraform init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="region=ap-south-1"
+          terraform apply -input=false -auto-approve -no-color -lock-timeout=60s
