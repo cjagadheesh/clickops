@@ -247,3 +247,23 @@
 **Needs the human**
 - Apply `infra/detector` (the rules reference the Lambda and DLQ), then run `AWS_PROFILE=clickops-admin scripts/test_event_patterns.sh`. "Done when": it prints "all fixtures match the expected patterns".
 - After the apply, confirm in the console or with `aws events list-rules` in both regions that the three rules are enabled.
+
+## Day 13: end-to-end smoke test (code part)
+
+**Built**
+- `clickops events --since 1h`: reads the `day-ts` index for every UTC day in the range, filters by timestamp, sorts oldest first and prints a rich table (time, actor and class, event, resource key, outcome, coloured severity). `--since` takes `30m`, `1h` or `2d`; `--json`, `--region` and `--table` are also available. Bad durations give a usage error.
+- `clickops/store.py`: `query_since` (pages through results, spans midnight, ignores future events).
+- `.github/workflows/terraform.yml`: `apply-detector` runs on pushes to `main` after `apply-sandbox`, builds the Lambda zip and applies `infra/detector` through OIDC.
+- Tests: duration parsing, ranged queries across two days, and the command's table, JSON and empty output against moto; the workflow test now expects exactly the two applies.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 380 passed.
+
+**Deviations**
+- None in the code. The AWS part of the day was not done (see below).
+
+**Needs the human (the day's "Done when" is not met until then)**
+1. With `clickops-admin` and your approval: add a rule allowing 8443 from `10.0.0.0/8` to the `web` group (`aws ec2 authorize-security-group-ingress --group-id <web> --protocol tcp --port 8443 --cidr 10.0.0.0/8`), then `aws iam put-role-policy` on `clickops-sandbox-app` with any small inline policy.
+2. Wait for both events and run `clickops events --since 1h`; both should appear with actor class `cli-human` and the right display name. Write the measured delay from the API call to the stored item here (CloudTrail typically takes 5-15 minutes).
+3. Revert with `terraform apply` in `infra/sandbox`, then check the revert events are also stored as `cli-human` (local applies run as the admin profile).
+4. Merge-to-`main` now applies `infra/detector` automatically, so the detector root must have been applied once by hand (Days 10-12) before the first CI apply, and `TF_STATE_BUCKET`, `CLICKOPS_CI_ROLE_ARN`, `TF_ADMIN_CIDR` and `TF_ALERT_EMAIL` must be set as repository variables.
