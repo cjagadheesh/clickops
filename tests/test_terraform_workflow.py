@@ -25,13 +25,16 @@ def test_plan_runs_for_sandbox_and_detector_only_on_pr() -> None:
     assert plan["permissions"]["pull-requests"] == "write"
 
 
-def test_apply_is_main_only_and_sandbox_only() -> None:
+def test_applies_are_main_only_and_limited_to_sandbox_and_detector() -> None:
     jobs = _workflow()["jobs"]
     applies = [name for name in jobs if name.startswith("apply")]
-    assert applies == ["apply-sandbox"]
-    job = jobs["apply-sandbox"]
-    assert "refs/heads/main" in job["if"]
-    assert any(s.get("working-directory") == "infra/sandbox" for s in job["steps"])
+    assert applies == ["apply-sandbox", "apply-detector"]
+    for name, root in (("apply-sandbox", "infra/sandbox"), ("apply-detector", "infra/detector")):
+        job = jobs[name]
+        assert "refs/heads/main" in job["if"]
+        assert any(root == s.get("working-directory") for s in job["steps"])
+    assert "scripts/build_lambda.sh" in str(jobs["apply-detector"]["steps"])
+    assert "apply-sandbox" in jobs["apply-detector"]["needs"]
 
 
 def test_aws_access_uses_oidc_only() -> None:
@@ -39,5 +42,5 @@ def test_aws_access_uses_oidc_only() -> None:
     assert "role-to-assume" in text
     assert "AWS_ACCESS_KEY_ID" not in text
     jobs = _workflow()["jobs"]
-    for name in ("plan", "apply-sandbox"):
+    for name in ("plan", "apply-sandbox", "apply-detector"):
         assert jobs[name]["permissions"]["id-token"] == "write"
