@@ -1,6 +1,8 @@
 import re
 from pathlib import Path
 
+import pytest
+
 DETECTOR = Path(__file__).resolve().parent.parent / "infra" / "detector"
 
 
@@ -103,3 +105,27 @@ def test_pattern_files_are_valid_json_for_cloudtrail_api_calls() -> None:
         assert pattern["detail"]["eventName"]
     sources = json.loads((DETECTOR / "patterns" / "regional.json").read_text())["source"]
     assert sources == ["aws.ec2", "aws.s3", "aws.lambda"]
+
+
+def test_alarms_notify_the_critical_topic() -> None:
+    tf = _read("alarms.tf")
+    assert 'metric_name         = "Errors"' in tf
+    assert 'metric_name         = "ApproximateNumberOfMessagesVisible"' in tf
+    assert tf.count("period              = 300") == 2
+    assert tf.count("threshold           = 0") == 2
+    assert tf.count('comparison_operator = "GreaterThanThreshold"') == 2
+    assert tf.count("alarm_actions       = [aws_sns_topic.critical.arn]") == 2
+    assert "cloudwatch.amazonaws.com" in tf and "sns:Publish" in tf
+
+
+def test_forced_error_script_uses_a_payload_the_handler_rejects() -> None:
+    import json
+    import re
+
+    from clickops.events import NormalizationError, normalize
+
+    script = (DETECTOR.parent.parent / "scripts" / "force_error.sh").read_text()
+    payload = re.search(r"PAYLOAD='(.*)'", script)
+    assert payload
+    with pytest.raises(NormalizationError):
+        normalize(json.loads(payload.group(1)))
