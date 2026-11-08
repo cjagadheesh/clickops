@@ -267,3 +267,35 @@
 2. Wait for both events and run `clickops events --since 1h`; both should appear with actor class `cli-human` and the right display name. Write the measured delay from the API call to the stored item here (CloudTrail typically takes 5-15 minutes).
 3. Revert with `terraform apply` in `infra/sandbox`, then check the revert events are also stored as `cli-human` (local applies run as the admin profile).
 4. Merge-to-`main` now applies `infra/detector` automatically, so the detector root must have been applied once by hand (Days 10-12) before the first CI apply, and `TF_STATE_BUCKET`, `CLICKOPS_CI_ROLE_ARN`, `TF_ADMIN_CIDR` and `TF_ALERT_EMAIL` must be set as repository variables.
+
+## Day 14: alarms and week-2 review
+
+**Built**
+- `infra/detector/alarms.tf`: alarm `clickops-detector-errors` (Lambda `Errors` sum greater than 0 over 5 minutes) and `clickops-detector-dlq-not-empty` (SQS `ApproximateNumberOfMessagesVisible` maximum greater than 0 over 5 minutes), both notifying `clickops-critical`, with missing data treated as not breaching. A topic policy lets CloudWatch alarms named `clickops-*` publish to the topic.
+- `scripts/force_error.sh`: invokes the detector with a malformed event, synchronously (a Lambda error) and asynchronously (retried, then dead-lettered). A test checks the handler really rejects that payload.
+- Tests for the alarm settings.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 382 passed.
+
+**Deviations**
+- None.
+
+**Needs the human**
+- After the detector apply, run `AWS_PROFILE=clickops-admin scripts/force_error.sh` and confirm both alarm emails arrive (alarms evaluate every 5 minutes). Then purge the DLQ with the command the script prints. "Done when" is the alarm email arriving.
+
+**Week-2 summary (Days 8-14)**
+
+| Day | Code and docs | AWS-dependent "Done when" |
+| --- | --- | --- |
+| 8 normalizer | done: all 44 fixtures normalize, failed calls dropped, Lambda suffixes stripped | none |
+| 9 actor classifier | done: five classes in the fixed order with edge-case fixtures | none |
+| 10 trail, table, topic | done in Terraform and `store.py` | apply, then click the SNS confirmation link |
+| 11 Lambda skeleton | done: handler, reproducible zip, Terraform | apply, then `scripts/invoke_fixture.sh` |
+| 12 EventBridge rules | done: patterns, three rules, forwarding, offline and AWS pattern checks | apply, then `scripts/test_event_patterns.sh` |
+| 13 smoke test | done: `clickops events`, detector apply in CI | the live change, the measured delay and the revert |
+| 14 alarms | done in Terraform | `scripts/force_error.sh` and the alarm email |
+
+- 382 tests pass; the full pipeline up to "store as unresolved" works against moto for every fixture.
+- Nothing from Days 8-13 is unfinished in code. Everything left is an AWS step for the human, in dependency order: apply bootstrap and sandbox (Days 3-4), set the four repository variables, apply `infra/detector` (Days 10-12 and 14 together, after building the Lambda zip), confirm the SNS subscription, then run the checks above and the Day 13 live change.
+- Open risks to watch on the first real run: the exact location of `sessionCredentialFromConsole` in real records (Day 9), whether `clickops-ci` needs extra permissions for the detector plan and apply (Day 5), and the CloudTrail-to-EventBridge delay (Day 13).
