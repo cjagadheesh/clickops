@@ -29,3 +29,10 @@ output "event_rules" {
     forward  = aws_cloudwatch_event_rule.forward.name
   }
 }
+
+output "alarms" {
+  value = [
+    aws_cloudwatch_metric_alarm.detector_errors.alarm_name,
+    aws_cloudwatch_metric_alarm.dlq_depth.alarm_name,
+  ]
+}
