@@ -34,6 +34,16 @@ data "aws_iam_policy_document" "detector" {
     resources = [aws_dynamodb_table.events.arn]
   }
 
+  # Terraform state is read for the sandbox and detector roots only (GET also covers HEAD).
+  statement {
+    sid     = "ReadTerraformState"
+    actions = ["s3:GetObject"]
+    resources = [
+      "arn:aws:s3:::clickops-tfstate-${data.aws_caller_identity.current.account_id}/sandbox/terraform.tfstate",
+      "arn:aws:s3:::clickops-tfstate-${data.aws_caller_identity.current.account_id}/detector/terraform.tfstate",
+    ]
+  }
+
   # Needed for the function's dead-letter queue (failed asynchronous invocations).
   statement {
     sid       = "DeadLetter"
