@@ -1,0 +1,440 @@
+{
+  "check_results": null,
+  "lineage": "00000000-0000-4000-8000-000000000000",
+  "outputs": {},
+  "resources": [
+    {
+      "instances": [
+        {
+          "attributes": {
+            "account_id": "111122223333",
+            "id": "111122223333"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "data",
+      "name": "current",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_caller_identity"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "id": "ami-0abc1234",
+            "name": "al2023-ami-2023.5-arm64"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "data",
+      "name": "al2023_arm",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_ami"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-south-1:111122223333:vpc/vpc-0abc1234def567890",
+            "cidr_block": "10.20.0.0/16",
+            "id": "vpc-0abc1234def567890"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_vpc"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-south-1:111122223333:subnet/subnet-0aa11bb22cc33dd44",
+            "id": "subnet-0aa11bb22cc33dd44",
+            "vpc_id": "vpc-0abc1234def567890"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "public",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_subnet"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-south-1:111122223333:internet-gateway/igw-0123456789abcdef0",
+            "id": "igw-0123456789abcdef0",
+            "vpc_id": "vpc-0abc1234def567890"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_internet_gateway"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-south-1:111122223333:route-table/rtb-0123456789abcdef0",
+            "id": "rtb-0123456789abcdef0",
+            "vpc_id": "vpc-0abc1234def567890"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "public",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_route_table"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "id": "rtbassoc-0123456789abcdef0",
+            "route_table_id": "rtb-0123456789abcdef0",
+            "subnet_id": "subnet-0aa11bb22cc33dd44"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "public",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_route_table_association"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-south-1:111122223333:security-group/sg-0a1b2c3d4e5f60718",
+            "egress": [],
+            "id": "sg-0a1b2c3d4e5f60718",
+            "ingress": [],
+            "name": "web",
+            "vpc_id": "vpc-0abc1234def567890"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "web",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_security_group"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-south-1:111122223333:security-group/sg-0b2c3d4e5f6071829",
+            "egress": [],
+            "id": "sg-0b2c3d4e5f6071829",
+            "ingress": [],
+            "name": "admin",
+            "vpc_id": "vpc-0abc1234def567890"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "admin",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_security_group"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-south-1:111122223333:security-group-rule/sgr-0123456789abcdef0",
+            "cidr_ipv4": "0.0.0.0/0",
+            "from_port": 443,
+            "id": "sgr-0123456789abcdef0",
+            "ip_protocol": "tcp",
+            "security_group_id": "sg-0a1b2c3d4e5f60718",
+            "to_port": 443
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "web_https",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_vpc_security_group_ingress_rule"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-south-1:111122223333:security-group-rule/sgr-0fedcba9876543210",
+            "cidr_ipv4": "203.0.113.10/32",
+            "from_port": 22,
+            "id": "sgr-0fedcba9876543210",
+            "ip_protocol": "tcp",
+            "security_group_id": "sg-0b2c3d4e5f6071829",
+            "to_port": 22
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "admin_ssh",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_vpc_security_group_ingress_rule"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-south-1:111122223333:instance/i-0123456789abcdef0",
+            "id": "i-0123456789abcdef0",
+            "instance_type": "t4g.nano",
+            "vpc_security_group_ids": [
+              "sg-0a1b2c3d4e5f60718",
+              "sg-0b2c3d4e5f6071829"
+            ]
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_instance"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "id": "i-0123456789abcdef0",
+            "instance_id": "i-0123456789abcdef0",
+            "state": "stopped"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_ec2_instance_state"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "arn": "arn:aws:s3:::clickops-sandbox-111122223333",
+            "bucket": "clickops-sandbox-111122223333",
+            "id": "clickops-sandbox-111122223333",
+            "region": "ap-south-1"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_s3_bucket"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "bucket": "clickops-sandbox-111122223333",
+            "id": "clickops-sandbox-111122223333",
+            "versioning_configuration": [
+              {
+                "status": "Enabled"
+              }
+            ]
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_s3_bucket_versioning"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "bucket": "clickops-sandbox-111122223333",
+            "id": "clickops-sandbox-111122223333"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_s3_bucket_server_side_encryption_configuration"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "block_public_acls": true,
+            "block_public_policy": true,
+            "bucket": "clickops-sandbox-111122223333",
+            "id": "clickops-sandbox-111122223333",
+            "ignore_public_acls": true,
+            "restrict_public_buckets": true
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_s3_bucket_public_access_block"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "arn": "arn:aws:iam::111122223333:role/clickops-sandbox-app",
+            "assume_role_policy": "{}",
+            "id": "clickops-sandbox-app",
+            "name": "clickops-sandbox-app"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "app",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_iam_role"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "id": "clickops-sandbox-app:read-sandbox-bucket",
+            "name": "read-sandbox-bucket",
+            "policy": "{}",
+            "role": "clickops-sandbox-app"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "app",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_iam_role_policy"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "id": "clickops-sandbox-app-20261026000000000000000001",
+            "policy_arn": "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+            "role": "clickops-sandbox-app"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "app_logs",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_iam_role_policy_attachment"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "arn": "arn:aws:lambda:ap-south-1:111122223333:function:clickops-sandbox-hello",
+            "environment": [
+              {
+                "variables": {
+                  "GREETING": "hunter2-not-a-real-secret"
+                }
+              }
+            ],
+            "function_name": "clickops-sandbox-hello",
+            "id": "clickops-sandbox-hello",
+            "role": "arn:aws:iam::111122223333:role/clickops-sandbox-app",
+            "runtime": "python3.12",
+            "timeout": 10
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "hello",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_lambda_function"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "arn": "arn:aws:route53:::hostedzone/Z0123456789ABCDEFGHIJ",
+            "id": "Z0123456789ABCDEFGHIJ",
+            "name": "clickops.internal",
+            "zone_id": "Z0123456789ABCDEFGHIJ"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "private",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_route53_zone"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "id": "Z0123456789ABCDEFGHIJ_app.clickops.internal_A",
+            "name": "app.clickops.internal",
+            "records": [
+              "10.20.1.10"
+            ],
+            "ttl": 300,
+            "type": "A",
+            "zone_id": "Z0123456789ABCDEFGHIJ"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "app",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_route53_record"
+    },
+    {
+      "instances": [
+        {
+          "attributes": {
+            "id": "Z0123456789ABCDEFGHIJ_db.clickops.internal_A",
+            "name": "db.clickops.internal",
+            "records": [
+              "10.20.1.20"
+            ],
+            "ttl": 300,
+            "type": "A",
+            "zone_id": "Z0123456789ABCDEFGHIJ"
+          },
+          "schema_version": 0
+        }
+      ],
+      "mode": "managed",
+      "name": "db",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "type": "aws_route53_record"
+    }
+  ],
+  "serial": 7,
+  "terraform_version": "1.10.3",
+  "version": 4
+}
