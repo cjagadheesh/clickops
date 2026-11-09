@@ -299,3 +299,24 @@
 - 382 tests pass; the full pipeline up to "store as unresolved" works against moto for every fixture.
 - Nothing from Days 8-13 is unfinished in code. Everything left is an AWS step for the human, in dependency order: apply bootstrap and sandbox (Days 3-4), set the four repository variables, apply `infra/detector` (Days 10-12 and 14 together, after building the Lambda zip), confirm the SNS subscription, then run the checks above and the Day 13 live change.
 - Open risks to watch on the first real run: the exact location of `sessionCredentialFromConsole` in real records (Day 9), whether `clickops-ci` needs extra permissions for the detector plan and apply (Day 5), and the CloudTrail-to-EventBridge delay (Day 13).
+
+## Day 15: Terraform state reader
+
+**Built**
+- `clickops/state.py`: `parse_state` checks the state is format version 4 and returns the managed resources (data sources are skipped) with their address, ID and ARN; `StateIndex` looks resources up by `(type, id)` and by ARN; `build_index` merges several state files. Child resources map to their parent: security group rules to their group, `aws_s3_bucket_*` config resources to their bucket, role policies and attachments to their role, plus Lambda permissions, instance state and Route 53 records. `children()` and `owner()` expose the mapping.
+- `StateReader`: reads the configured state locations from S3 with one `HeadObject` per file per call and downloads a file only when its ETag changed; keep one instance in the Lambda's global scope. Errors name the S3 location only.
+- State files can hold secrets: attribute values are kept out of `repr`, and the only log line lists resource addresses.
+- `infra/detector/lambda_role.tf`: the detector role may `s3:GetObject` the sandbox and detector state keys only.
+- `tests/fixtures/state/sandbox-state.json`: a state file in the real format covering every resource in `infra/sandbox`, with IDs matching the CloudTrail fixtures, and a fake secret in the Lambda environment to prove nothing leaks.
+- `tests/test_state.py`: every managed resource is found by ID and ARN, parents and children, version rejection, module addresses, merging, ETag caching, refresh on change and log hygiene, all against moto.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 399 passed.
+
+**Deviations**
+- The fixture is synthetic, modelled on what the sandbox configuration produces, not a capture of the real state (no AWS access here). It is named `sandbox-state.json` because `*.tfstate*` is gitignored.
+- The fixture's `ingress` and `egress` lists on the security groups are empty because rules are separate resources; the Day 18 comparator will use the rule resources.
+
+**Needs the human**
+- Optional but recommended: pull the real sandbox state (`terraform state pull > /tmp/state.json`), scrub secrets and IDs you don't want public, save it over `tests/fixtures/state/sandbox-state.json` (keeping the IDs consistent with the event fixtures or updating them) and run `make check` to confirm the index still resolves every resource.
+- Apply `infra/detector` so the new state-read permission exists.
