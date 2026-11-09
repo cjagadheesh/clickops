@@ -129,3 +129,13 @@ def test_forced_error_script_uses_a_payload_the_handler_rejects() -> None:
     assert payload
     with pytest.raises(NormalizationError):
         normalize(json.loads(payload.group(1)))
+
+
+def test_detector_can_read_only_the_two_state_keys() -> None:
+    tf = _read("lambda_role.tf")
+    block = tf[tf.index('sid     = "ReadTerraformState"') :]
+    block = block[: block.index("}\n")]
+    assert 'actions = ["s3:GetObject"]' in block
+    assert block.count("terraform.tfstate") == 2
+    assert "sandbox/terraform.tfstate" in block and "detector/terraform.tfstate" in block
+    assert "s3:PutObject" not in tf and "s3:ListBucket" not in tf
