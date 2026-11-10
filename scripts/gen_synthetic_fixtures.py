@@ -17,6 +17,8 @@ OUT = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "cloudtrai
 ACCOUNT = "111122223333"
 SSO_ROLE = "AWSReservedSSO_AdminAccess_0123456789abcdef"
 SG = "sg-0a1b2c3d4e5f60718"
+NEW_SG = "sg-0c3d4e5f607182930"
+SCRATCH_ROLE = "clickops-scratch-role"
 INSTANCE = "i-0123456789abcdef0"
 BUCKET = "clickops-sandbox-111122223333"
 ZONE = "Z0123456789ABCDEFGHIJ"
@@ -210,7 +212,7 @@ def build() -> list[tuple[str, str, dict[str, Any]]]:
             c,
             "CreateSecurityGroup",
             {"groupName": "scratch", "groupDescription": "scratch", "vpcId": "vpc-0abc1234"},
-            {"requestId": "r", "_return": True, "groupId": SG},
+            {"requestId": "r", "_return": True, "groupId": NEW_SG},
         ),
         row(
             "ec2",
@@ -325,8 +327,13 @@ def build() -> list[tuple[str, str, dict[str, Any]]]:
             "CreateRole",
             iam,
             "CreateRole",
-            {"roleName": ROLE, "assumeRolePolicyDocument": trust_doc},
-            {"role": {"roleName": ROLE, "arn": f"arn:aws:iam::{ACCOUNT}:role/{ROLE}"}},
+            {"roleName": SCRATCH_ROLE, "assumeRolePolicyDocument": trust_doc},
+            {
+                "role": {
+                    "roleName": SCRATCH_ROLE,
+                    "arn": f"arn:aws:iam::{ACCOUNT}:role/{SCRATCH_ROLE}",
+                }
+            },
         ),
         row("iam", "DeleteRole", iam, "DeleteRole", {"roleName": ROLE}, None),
         row(
