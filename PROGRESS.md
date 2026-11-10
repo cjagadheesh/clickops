@@ -320,3 +320,24 @@
 **Needs the human**
 - Optional but recommended: pull the real sandbox state (`terraform state pull > /tmp/state.json`), scrub secrets and IDs you don't want public, save it over `tests/fixtures/state/sandbox-state.json` (keeping the IDs consistent with the event fixtures or updating them) and run `make check` to confirm the index still resolves every resource.
 - Apply `infra/detector` so the new state-read permission exists.
+
+## Day 16: resolvers for security groups and IAM
+
+**Built**
+- `clickops/resolvers/__init__.py`: `resolve(event) -> list[ResourceRef]`, a registry keyed by CloudTrail event source (`ec2.amazonaws.com`, `iam.amazonaws.com`); an unknown source gives an empty list.
+- `resolvers/base.py`: the `ResourceRef.type` names (`sg`, `iam-role`, `iam-policy`, `s3`, `ec2`, `lambda`, `route53-zone`, `route53-record`), the map from each to its Terraform state type, `find_in_state(index, ref)` and request/response parameter helpers.
+- `resolvers/sg.py`: `CreateSecurityGroup` uses `responseElements.groupId`; delete, authorize, revoke and `ModifySecurityGroupRules` use `requestParameters.groupId`, so rule-level calls resolve to the parent group.
+- `resolvers/iam.py`: role calls (create, delete, trust policy update, inline policy put and delete, attach and detach) resolve to the role (the ARN comes from `CreateRole`'s response when present); `CreatePolicy` and `CreatePolicyVersion` resolve to the policy ARN.
+- Fixtures: the create fixtures now use a new security group and scratch role that are not in state, so "not found" is exercised (shadow creates) next to "found" for the managed ones.
+- `tests/test_resolvers_sg_iam.py`: a table gives each of the 21 SG and IAM fixtures its expected ref and whether state knows it; also ARNs, rule children of the resolved group, unknown sources and names, and missing IDs.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 425 passed.
+
+**Deviations**
+- `ModifySecurityGroupRules` resolves only when the event carries `groupId`; a real event that carries only rule IDs would need a describe call (to be checked against a real recording).
+- Attach and detach resolve to the role only, because the drift is on the role even when the managed policy is AWS-owned.
+- The instance events (`ec2.amazonaws.com`) are resolved on the next day.
+
+**Needs the human**
+- When real fixtures are recorded, confirm `ModifySecurityGroupRules` really includes `requestParameters.groupId`.
