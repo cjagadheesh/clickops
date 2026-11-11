@@ -18,6 +18,9 @@ ACCOUNT = "111122223333"
 SSO_ROLE = "AWSReservedSSO_AdminAccess_0123456789abcdef"
 SG = "sg-0a1b2c3d4e5f60718"
 NEW_SG = "sg-0c3d4e5f607182930"
+SCRATCH_BUCKET = "clickops-scratch-111122223333"
+SCRATCH_FUNCTION = "clickops-scratch-fn"
+NEW_ZONE = "Z0987654321ZYXWVUTSRQ"
 SCRATCH_ROLE = "clickops-scratch-role"
 INSTANCE = "i-0123456789abcdef0"
 BUCKET = "clickops-sandbox-111122223333"
@@ -401,7 +404,14 @@ def build() -> list[tuple[str, str, dict[str, Any]]]:
             {"policyArn": POLICY_ARN, "policyDocument": policy_doc, "setAsDefault": True},
             {"policyVersion": {"versionId": "v2", "isDefaultVersion": True}},
         ),
-        row("s3", "CreateBucket", s3, "CreateBucket", {"bucketName": BUCKET, "Host": "s3"}, None),
+        row(
+            "s3",
+            "CreateBucket",
+            s3,
+            "CreateBucket",
+            {"bucketName": SCRATCH_BUCKET, "Host": "s3"},
+            None,
+        ),
         row("s3", "DeleteBucket", s3, "DeleteBucket", {"bucketName": BUCKET}, None),
         row(
             "s3",
@@ -480,12 +490,12 @@ def build() -> list[tuple[str, str, dict[str, Any]]]:
             lam,
             "CreateFunction20150331",
             {
-                "functionName": FUNCTION,
+                "functionName": SCRATCH_FUNCTION,
                 "runtime": "python3.12",
                 "handler": "hello.handler",
                 "role": f"arn:aws:iam::{ACCOUNT}:role/{ROLE}",
             },
-            {"functionName": FUNCTION, "runtime": "python3.12", "timeout": 10},
+            {"functionName": SCRATCH_FUNCTION, "runtime": "python3.12", "timeout": 10},
         ),
         row(
             "lambda",
@@ -562,7 +572,7 @@ def build() -> list[tuple[str, str, dict[str, Any]]]:
             r53,
             "CreateHostedZone",
             {"name": "scratch.internal.", "hostedZoneConfig": {"privateZone": True}},
-            {"hostedZone": {"id": f"/hostedzone/{ZONE}", "name": "scratch.internal."}},
+            {"hostedZone": {"id": f"/hostedzone/{NEW_ZONE}", "name": "scratch.internal."}},
         ),
         row(
             "route53",
