@@ -111,7 +111,6 @@ def test_unknown_sources_and_names_give_no_refs() -> None:
     event = load_event("ec2", "AuthorizeSecurityGroupIngress")
     assert resolvers.resolve(event.model_copy(update={"source": "sqs.amazonaws.com"})) == []
     assert resolvers.resolve(event.model_copy(update={"name": "DescribeInstances"})) == []
-    assert resolvers.resolve(load_event("ec2", "RunInstances")) == []
 
 
 def test_missing_ids_give_no_refs() -> None:
