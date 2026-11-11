@@ -341,3 +341,23 @@
 
 **Needs the human**
 - When real fixtures are recorded, confirm `ModifySecurityGroupRules` really includes `requestParameters.groupId`.
+
+## Day 17: resolvers for S3, EC2, Lambda and Route 53
+
+**Built**
+- `resolvers/ec2.py`: `RunInstances` gives one ref per instance in the response, `TerminateInstances`, `StartInstances` and `StopInstances` one per instance in the request, `ModifyInstanceAttribute` the single instance; duplicates collapse.
+- `resolvers/s3.py`: the eight bucket events resolve to `requestParameters.bucketName`.
+- `resolvers/lambda_fn.py`: version suffixes are already stripped, so the five function events resolve to the bare function name, whether the event carries a name, a partial or full ARN, or a `name:qualifier`; `CreateFunction` reads the name from the response.
+- `resolvers/route53.py`: `ChangeResourceRecordSets` gives one ref per distinct record name and type in the change batch, with the Terraform import ID format `ZONEID_name_TYPE` (lower-cased, no trailing dot, so it matches state); `CreateHostedZone` and `DeleteHostedZone` resolve to the zone (the `/hostedzone/` prefix is dropped).
+- `resolvers/__init__.py`: the registry now maps each event source to a list of resolvers (`ec2.amazonaws.com` runs the security group and instance resolvers). An unwatched event or source returns an empty list and is logged once per source and name at debug level; nothing is raised.
+- The create fixtures use a scratch bucket, function and hosted zone that are not in state, to exercise "not found".
+- `tests/test_resolvers_rest.py`: a table for the remaining fixtures with expected refs and whether state knows them, plus a check that every fixture in the library resolves to at least one ref of a known type.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 463 passed.
+
+**Deviations**
+- None.
+
+**Needs the human**
+- Nothing new. Real recordings (Day 6) should be replayed through `tests/test_resolvers_*.py`; Route 53 wildcard names arrive escaped (`\052`) in real events and are not decoded yet.
