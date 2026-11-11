@@ -15,13 +15,13 @@
     "recipientAccountId": "111122223333",
     "requestID": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
     "requestParameters": {
-      "functionName": "clickops-sandbox-hello",
+      "functionName": "clickops-scratch-fn",
       "handler": "hello.handler",
       "role": "arn:aws:iam::111122223333:role/clickops-sandbox-app",
       "runtime": "python3.12"
     },
     "responseElements": {
-      "functionName": "clickops-sandbox-hello",
+      "functionName": "clickops-scratch-fn",
       "runtime": "python3.12",
       "timeout": 10
     },
