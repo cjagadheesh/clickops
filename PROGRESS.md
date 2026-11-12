@@ -361,3 +361,29 @@
 
 **Needs the human**
 - Nothing new. Real recordings (Day 6) should be replayed through `tests/test_resolvers_*.py`; Route 53 wildcard names arrive escaped (`\052`) in real events and are not decoded yet.
+
+## Day 18: live-versus-state comparators
+
+**Built**
+- `clickops/compare/`: one module per resource type. Each reads live configuration with read-only calls and returns a `Comparison` (`exists`, plus field-level `changes` of `field`, `state`, `live`; `diff()` gives the dict a `Finding` stores).
+  - security group: ingress and egress rules as sorted `proto from-to target` strings (CIDR, IPv6, referenced group, prefix list), built from the rule resources, inline blocks and legacy rule resources in state;
+  - IAM role: trust policy, inline policies (name to normalized document) and attached policy ARNs; IAM managed policies: the default version's document;
+  - S3 bucket: bucket policy, the four Block Public Access flags (reported one field each), versioning status and encryption algorithm, only for settings Terraform manages;
+  - EC2 instance: instance type, security group IDs, instance profile and running or stopped (the `aws_ec2_instance_state` resource wins over the instance attribute);
+  - Lambda function: runtime, handler, memory, timeout, role, code SHA-256 and environment variable names only (values are never read into the result);
+  - Route 53 record: name, type, TTL and values.
+- `compare/base.py`: `normalize_policy` parses JSON text, sorts keys and statements, and treats a single string and a one-item list as equal for actions, resources and principals (`"*"` equals `{"AWS": ["*"]}`).
+- `compare/__init__.py`: `compare(event, ref, index)` returns `None` when state does not manage the ref; a resource-deleting event (`DeleteSecurityGroup`, `DeleteRole`, `DeleteBucket`, `TerminateInstances`, `DeleteFunction`, `DeleteHostedZone`) gives `exists=False` with no AWS call; a resource that is not found live also gives `exists=False`; hosted zones compare as unchanged.
+- `infra/detector/lambda_role.tf`: the read-only calls the comparators make, each listed explicitly, scoped by resource ARN where AWS supports it (the two EC2 describe calls need `*`).
+- Tests with moto for one change of every attribute in the plan's table, plus matching resources, missing resources, formatting-only policy differences and secrets never appearing in results.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 526 passed.
+
+**Deviations**
+- The plan lists "code SHA-256" and "encryption algorithm" etc.; each is compared as above. A setting that Terraform does not manage (no state resource) is skipped rather than reported as drift.
+- moto does not ship AWS-managed IAM policies, so the IAM tests create customer-managed policies to attach.
+- The role gets `s3:ListBucket` on `arn:aws:s3:::*` because `HeadBucket` requires it.
+
+**Needs the human**
+- Nothing new. Once the detector is applied, the Day 19 end-to-end run exercises these read calls for real; any AccessDenied will name the missing action.
