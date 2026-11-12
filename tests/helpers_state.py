@@ -7,7 +7,7 @@ from typing import Any
 from clickops.state import StateIndex, build_index
 
 
-def resource(type_: str, name: str, **attrs: Any) -> dict[str, Any]:
+def resource(type_: str, name: str, /, **attrs: Any) -> dict[str, Any]:
     return {
         "mode": "managed",
         "type": type_,
