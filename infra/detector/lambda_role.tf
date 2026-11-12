@@ -44,6 +44,54 @@ data "aws_iam_policy_document" "detector" {
     ]
   }
 
+  # Read-only calls the comparators make, each listed explicitly. EC2 describe calls do not support
+  # resource-level permissions.
+  statement {
+    sid       = "CompareEc2"
+    actions   = ["ec2:DescribeSecurityGroups", "ec2:DescribeInstances"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "CompareIam"
+    actions = [
+      "iam:GetRole",
+      "iam:ListRolePolicies",
+      "iam:GetRolePolicy",
+      "iam:ListAttachedRolePolicies",
+      "iam:GetPolicy",
+      "iam:GetPolicyVersion",
+    ]
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/*",
+    ]
+  }
+
+  statement {
+    sid = "CompareS3"
+    actions = [
+      "s3:ListBucket",
+      "s3:GetBucketPolicy",
+      "s3:GetBucketPublicAccessBlock",
+      "s3:GetBucketVersioning",
+      "s3:GetEncryptionConfiguration",
+    ]
+    resources = ["arn:aws:s3:::*"]
+  }
+
+  statement {
+    sid       = "CompareLambda"
+    actions   = ["lambda:GetFunctionConfiguration"]
+    resources = ["arn:aws:lambda:*:${data.aws_caller_identity.current.account_id}:function:*"]
+  }
+
+  statement {
+    sid       = "CompareRoute53"
+    actions   = ["route53:ListResourceRecordSets"]
+    resources = ["arn:aws:route53:::hostedzone/*"]
+  }
+
   # Needed for the function's dead-letter queue (failed asynchronous invocations).
   statement {
     sid       = "DeadLetter"
