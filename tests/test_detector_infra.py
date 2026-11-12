@@ -63,8 +63,9 @@ def test_lambda_role_is_limited_to_logs_dynamodb_put_and_dlq() -> None:
     assert '"dynamodb:PutItem"' in tf
     assert "logs:CreateLogStream" in tf and "logs:PutLogEvents" in tf
     assert "sqs:SendMessage" in tf
-    for broad in ('"dynamodb:*"', '"logs:*"', '"s3:*"', '"*"'):
+    for broad in ('"dynamodb:*"', '"logs:*"', '"s3:*"'):
         assert broad not in tf
+    assert tf.count('"*"') == 1  # only the EC2 describe calls, which have no resource-level scope
 
 
 def test_lambda_env_names_match_the_code() -> None:
@@ -138,4 +139,34 @@ def test_detector_can_read_only_the_two_state_keys() -> None:
     assert 'actions = ["s3:GetObject"]' in block
     assert block.count("terraform.tfstate") == 2
     assert "sandbox/terraform.tfstate" in block and "detector/terraform.tfstate" in block
-    assert "s3:PutObject" not in tf and "s3:ListBucket" not in tf
+    assert "s3:PutObject" not in tf
+
+
+def test_detector_read_actions_are_explicit_and_cover_every_comparator_call() -> None:
+    tf = _read("lambda_role.tf")
+    needed = [
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeInstances",
+        "iam:GetRole",
+        "iam:ListRolePolicies",
+        "iam:GetRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:GetBucketVersioning",
+        "s3:GetEncryptionConfiguration",
+        "lambda:GetFunctionConfiguration",
+        "route53:ListResourceRecordSets",
+    ]
+    for action in needed:
+        assert f'"{action}"' in tf, action
+    assert not re.search(r'"[a-z0-9]+:\*"', tf)
+    assert not re.search(
+        r'"[a-z0-9]+:(Put|Delete|Create|Update|Attach|Detach)',
+        tf.replace("dynamodb:PutItem", "")
+        .replace("sqs:SendMessage", "")
+        .replace("logs:CreateLogStream", "")
+        .replace("logs:PutLogEvents", ""),
+    )
