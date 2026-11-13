@@ -387,3 +387,28 @@
 
 **Needs the human**
 - Nothing new. Once the detector is applied, the Day 19 end-to-end run exercises these read calls for real; any AccessDenied will name the missing action.
+
+## Day 19: outcomes, severity and the full pipeline
+
+**Built**
+- `clickops/rules.py`: `decide(event, actor, ref, state, comparison, config)` returns an outcome, a severity and a reason.
+  - Table: `managed-drift` warning, `managed-delete` critical, `shadow-create` info, `ignored` none. Machine actors (`clickops-self`, `ci`, `aws-service`) are ignored. A change to an unmanaged resource that is not a creation, and a change whose live configuration matches state, are also stored as `ignored`.
+  - Critical overrides: ingress from `0.0.0.0/0` or `::/0` on any port other than exactly 80 or 443 (looked at in the requested rules and in the rules added since state, so a world-open rule that is already coded does not make every later change critical); an IAM Allow with `Action` or `Resource` `*` together with a write action (in the request's policy document or the live document that changed); S3 Block Public Access disabled (put with a flag not true, delete, or a live flag that differs from state). Attaching a managed policy such as `AmazonS3FullAccess` stays a warning.
+  - `clickops:ignore=true` (state tags, `tags_all`, or tags in a create request) and `clickops.yaml` ignore rules (Terraform type and/or ID glob) make an event `ignored`; config severity overrides apply last (a specific type beats a general one) but never lower a critical override or touch ignored events.
+  - Route 53: an UPSERT or CREATE of a record that state does not know is a shadow create; a DELETE of one is not.
+- `clickops/handler.py`: normalize, classify, resolve, state lookup, compare, decide, store; one stored item per changed resource, with the outcome, severity, reason, Terraform address and diff (as JSON text). State is read through the cached `StateReader`; machine actors skip the state read. Settings come from a bundled `clickops.yaml` (path in `CLICKOPS_CONFIG`) or from `CLICKOPS_STATE_LOCATIONS`; `CLICKOPS_TRUSTED_ROLES` still adds CI roles.
+- Failures raise instead of being swallowed: a malformed event, a missing or unreadable state object, and any AWS error such as throttling or access denied all propagate, so Lambda retries and then dead-letters the event. `infra/detector` now sets two retries on asynchronous invocations (`aws_lambda_function_event_invoke_config`) next to the existing DLQ and EventBridge retry policy.
+- Golden tests: `tests/test_golden.py` replays all 45 fixtures through the full pipeline against moto (DynamoDB and S3 state) and compares the stored items with `tests/golden/<service>/<fixture>.json` (`UPDATE_GOLDEN=1` regenerates them). Live comparisons are canned there because the comparators have their own moto tests; `tests/test_pipeline_moto.py` runs the key scenarios with the real comparators (world SSH is critical with the diff, an office-only rule is a warning, a managed policy attachment is a warning, a matching change is ignored, a deleted group is a managed delete).
+- `build_lambda.sh` bundles an optional, gitignored `clickops.yaml`.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 596 passed.
+
+**Deviations**
+- Events that change a resource Terraform does not manage, and events whose result matches state, are stored as `ignored` (the spec lists `ignored` only for actors and opt-outs); alerting skips them either way.
+- The golden tests canned the live side by design (see above); the pipeline test with real comparators covers the main scenarios, not every fixture.
+- "Retried by Lambda and then lands in the DLQ" is configuration plus raising behaviour: it is tested up to the raise, and the retry and dead-letter delivery itself needs the deployed Lambda.
+
+**Needs the human**
+- After applying `infra/detector`, run `scripts/force_error.sh` (Day 14) and confirm the dead-lettered message and alarm; then `scripts/invoke_fixture.sh ec2/AuthorizeSecurityGroupIngress` should now store a `managed-drift` item with a diff (or an AccessDenied that names a missing read permission).
+- Rebuild the Lambda zip before applying so it contains the new handler.
