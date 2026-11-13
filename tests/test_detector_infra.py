@@ -170,3 +170,24 @@ def test_detector_read_actions_are_explicit_and_cover_every_comparator_call() ->
         .replace("logs:CreateLogStream", "")
         .replace("logs:PutLogEvents", ""),
     )
+
+
+def test_async_failures_are_retried_twice_then_dead_lettered() -> None:
+    tf = _read("lambda.tf")
+    assert 'resource "aws_lambda_function_event_invoke_config" "detector"' in tf
+    assert "maximum_retry_attempts       = 2" in tf
+    assert "dead_letter_config" in tf
+    rules = _read("rules.tf")
+    assert rules.count("maximum_retry_attempts       = 2") == 2 and "dead_letter_config" in rules
+
+
+def test_lambda_reads_both_state_files() -> None:
+    tf = _read("lambda.tf")
+    assert "CLICKOPS_STATE_LOCATIONS" in tf
+    assert "sandbox/terraform.tfstate" in tf and "detector/terraform.tfstate" in tf
+
+
+def test_runtime_config_is_not_committed() -> None:
+    root = DETECTOR.parent.parent
+    assert "clickops.yaml" in (root / ".gitignore").read_text().split()
+    assert "clickops.yaml" in (root / "scripts" / "build_lambda.sh").read_text()
