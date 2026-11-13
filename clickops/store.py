@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -119,3 +120,32 @@ def query_since(table: Any, since: datetime, until: datetime | None = None) -> l
             kwargs["ExclusiveStartKey"] = page["LastEvaluatedKey"]
         day += timedelta(days=1)
     return sorted(items, key=lambda i: (i[TS_ATTR], i[RANGE_KEY]))
+
+
+def finding_item(finding: Any, reason: str = "", address: str | None = None) -> dict[str, Any]:
+    """The DynamoDB item for a Finding. The diff is stored as JSON text (DynamoDB has no floats)."""
+    event, actor, resource = finding.event, finding.actor, finding.resource
+    key = resource.key if resource else f"unresolved#{event.name}"
+    return build_item(
+        resource_key=key,
+        event_id=event.event_id,
+        when=event.time,
+        fields={
+            "event_name": event.name,
+            "event_source": event.source,
+            "region": event.region,
+            "account": event.account,
+            "actor_class": actor.actor_class.value,
+            "actor_name": actor.display_name,
+            "actor_arn": actor.arn,
+            "source_ip": event.source_ip,
+            "user_agent": event.user_agent,
+            "resource_type": resource.type if resource else None,
+            "resource_id": resource.id if resource else None,
+            "terraform_address": address,
+            "outcome": finding.outcome.value,
+            "severity": finding.severity.value,
+            "reason": reason or None,
+            "diff": json.dumps(finding.diff, sort_keys=True, default=str) if finding.diff else None,
+        },
+    )
