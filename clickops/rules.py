@@ -35,7 +35,7 @@ CREATE_EVENTS = {
     "CreateFunction",
     "CreateHostedZone",
 }
-_SKIPPED_ACTORS = {ActorClass.CLICKOPS_SELF, ActorClass.CI, ActorClass.AWS_SERVICE}
+SKIPPED_ACTORS = {ActorClass.CLICKOPS_SELF, ActorClass.CI, ActorClass.AWS_SERVICE}
 _WRITE_VERBS = (
     "put",
     "create",
@@ -325,7 +325,7 @@ def decide(
     config: Config | None = None,
 ) -> Decision:
     """Outcome and severity for one changed resource."""
-    if actor.actor_class in _SKIPPED_ACTORS:
+    if actor.actor_class in SKIPPED_ACTORS:
         return Decision(Outcome.IGNORED, Severity.NONE, f"actor is {actor.actor_class.value}")
     if opted_out(event, state):
         return Decision(Outcome.IGNORED, Severity.NONE, f"tagged {IGNORE_TAG}=true")
