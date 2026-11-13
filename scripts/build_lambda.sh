@@ -24,6 +24,8 @@ uv export --frozen --no-dev --no-hashes --no-emit-project "${SKIP_ARGS[@]}" \
 uv pip install --quiet --target "$BUILD" --no-deps --only-binary :all: \
   --python-version 3.12 --python-platform aarch64-manylinux2014 -r "$REQS"
 cp -R clickops "$BUILD/clickops"
+# Optional, account-specific settings (ignore rules, severity overrides); gitignored.
+if [ -f clickops.yaml ]; then cp clickops.yaml "$BUILD/clickops.yaml"; fi
 
 python3 - "$BUILD" "$OUT" <<'PY'
 import os
