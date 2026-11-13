@@ -1,0 +1,24 @@
+[
+  {
+    "account": "111122223333",
+    "actor_arn": "arn:aws:sts::111122223333:assumed-role/AWSReservedSSO_AdminAccess_0123456789abcdef/asha@example.com",
+    "actor_class": "cli-human",
+    "actor_name": "asha@example.com",
+    "day": "2026-10-26",
+    "event_id": "11111111-2222-4333-8444-002834122413",
+    "event_name": "CreateFunction",
+    "event_source": "lambda.amazonaws.com",
+    "expires_at": 1800785730,
+    "outcome": "shadow-create",
+    "reason": "created outside Terraform",
+    "region": "ap-south-1",
+    "resource_id": "clickops-scratch-fn",
+    "resource_key": "lambda#clickops-scratch-fn",
+    "resource_type": "lambda",
+    "severity": "info",
+    "sk": "2026-10-26T10:15:30Z#11111111-2222-4333-8444-002834122413",
+    "source_ip": "203.0.113.25",
+    "ts": "2026-10-26T10:15:30Z",
+    "user_agent": "aws-cli/2.17.0 Python/3.12.4 Linux/6.1"
+  }
+]

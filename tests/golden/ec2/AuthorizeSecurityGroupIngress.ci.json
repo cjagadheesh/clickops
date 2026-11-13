@@ -1,0 +1,24 @@
+[
+  {
+    "account": "111122223333",
+    "actor_arn": "arn:aws:sts::111122223333:assumed-role/clickops-ci/GitHubActions",
+    "actor_class": "ci",
+    "actor_name": "GitHubActions",
+    "day": "2026-10-26",
+    "event_id": "11111111-2222-4333-8444-004073613394",
+    "event_name": "AuthorizeSecurityGroupIngress",
+    "event_source": "ec2.amazonaws.com",
+    "expires_at": 1800785730,
+    "outcome": "ignored",
+    "reason": "actor is ci",
+    "region": "ap-south-1",
+    "resource_id": "sg-0a1b2c3d4e5f60718",
+    "resource_key": "sg#sg-0a1b2c3d4e5f60718",
+    "resource_type": "sg",
+    "severity": "none",
+    "sk": "2026-10-26T10:15:30Z#11111111-2222-4333-8444-004073613394",
+    "source_ip": "203.0.113.25",
+    "ts": "2026-10-26T10:15:30Z",
+    "user_agent": "aws-cli/2.17.0 Python/3.12.4 Linux/6.1"
+  }
+]

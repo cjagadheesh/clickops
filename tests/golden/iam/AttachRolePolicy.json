@@ -1,0 +1,26 @@
+[
+  {
+    "account": "111122223333",
+    "actor_arn": "arn:aws:sts::111122223333:assumed-role/AWSReservedSSO_AdminAccess_0123456789abcdef/asha@example.com",
+    "actor_class": "cli-human",
+    "actor_name": "asha@example.com",
+    "day": "2026-10-26",
+    "diff": "{\"drift\": {\"live\": \"changed by hand\", \"state\": \"as coded\"}}",
+    "event_id": "11111111-2222-4333-8444-003607557681",
+    "event_name": "AttachRolePolicy",
+    "event_source": "iam.amazonaws.com",
+    "expires_at": 1800785730,
+    "outcome": "managed-drift",
+    "reason": "live configuration differs from Terraform state",
+    "region": "us-east-1",
+    "resource_id": "clickops-sandbox-app",
+    "resource_key": "iam-role#clickops-sandbox-app",
+    "resource_type": "iam-role",
+    "severity": "warning",
+    "sk": "2026-10-26T10:15:30Z#11111111-2222-4333-8444-003607557681",
+    "source_ip": "203.0.113.25",
+    "terraform_address": "aws_iam_role.app",
+    "ts": "2026-10-26T10:15:30Z",
+    "user_agent": "aws-cli/2.17.0 Python/3.12.4 Linux/6.1"
+  }
+]

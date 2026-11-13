@@ -1,0 +1,25 @@
+[
+  {
+    "account": "111122223333",
+    "actor_arn": "arn:aws:sts::111122223333:assumed-role/AWSReservedSSO_AdminAccess_0123456789abcdef/asha@example.com",
+    "actor_class": "cli-human",
+    "actor_name": "asha@example.com",
+    "day": "2026-10-26",
+    "event_id": "11111111-2222-4333-8444-003637982999",
+    "event_name": "DeleteHostedZone",
+    "event_source": "route53.amazonaws.com",
+    "expires_at": 1800785730,
+    "outcome": "managed-delete",
+    "reason": "Terraform-managed resource was deleted",
+    "region": "us-east-1",
+    "resource_id": "Z0123456789ABCDEFGHIJ",
+    "resource_key": "route53-zone#Z0123456789ABCDEFGHIJ",
+    "resource_type": "route53-zone",
+    "severity": "critical",
+    "sk": "2026-10-26T10:15:30Z#11111111-2222-4333-8444-003637982999",
+    "source_ip": "203.0.113.25",
+    "terraform_address": "aws_route53_zone.private",
+    "ts": "2026-10-26T10:15:30Z",
+    "user_agent": "aws-cli/2.17.0 Python/3.12.4 Linux/6.1"
+  }
+]

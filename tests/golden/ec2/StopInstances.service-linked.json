@@ -1,0 +1,24 @@
+[
+  {
+    "account": "111122223333",
+    "actor_arn": "arn:aws:sts::111122223333:assumed-role/AWSServiceRoleForAutoScaling/AutoScaling",
+    "actor_class": "aws-service",
+    "actor_name": "AutoScaling",
+    "day": "2026-10-26",
+    "event_id": "11111111-2222-4333-8444-000552330657",
+    "event_name": "StopInstances",
+    "event_source": "ec2.amazonaws.com",
+    "expires_at": 1800785730,
+    "outcome": "ignored",
+    "reason": "actor is aws-service",
+    "region": "ap-south-1",
+    "resource_id": "i-0123456789abcdef0",
+    "resource_key": "ec2#i-0123456789abcdef0",
+    "resource_type": "ec2",
+    "severity": "none",
+    "sk": "2026-10-26T10:15:30Z#11111111-2222-4333-8444-000552330657",
+    "source_ip": "203.0.113.25",
+    "ts": "2026-10-26T10:15:30Z",
+    "user_agent": "aws-cli/2.17.0 Python/3.12.4 Linux/6.1"
+  }
+]
