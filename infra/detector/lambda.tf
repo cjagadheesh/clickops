@@ -31,10 +31,12 @@ resource "aws_lambda_function" "detector" {
 
   environment {
     variables = {
-      CLICKOPS_TABLE           = aws_dynamodb_table.events.name
-      CLICKOPS_SELF_ROLE_ARN   = local.role_arn
-      CLICKOPS_TRUSTED_ROLES   = join(",", var.trusted_role_arns)
-      CLICKOPS_STATE_LOCATIONS = local.state_locations
+      CLICKOPS_TABLE              = aws_dynamodb_table.events.name
+      CLICKOPS_SELF_ROLE_ARN      = local.role_arn
+      CLICKOPS_TRUSTED_ROLES      = join(",", var.trusted_role_arns)
+      CLICKOPS_STATE_LOCATIONS    = local.state_locations
+      CLICKOPS_CRITICAL_TOPIC_ARN = aws_sns_topic.critical.arn
+      CLICKOPS_SLACK_PARAM        = var.slack_webhook_parameter
     }
   }
 
