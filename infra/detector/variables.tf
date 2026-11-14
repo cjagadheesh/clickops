@@ -35,3 +35,9 @@ variable "trusted_role_arns" {
   type        = list(string)
   default     = []
 }
+
+variable "slack_webhook_parameter" {
+  description = "SSM SecureString holding the Slack webhook URL (stored by hand, never in Terraform)."
+  type        = string
+  default     = "/clickops/slack-webhook"
+}

@@ -15,6 +15,10 @@ data "aws_iam_policy_document" "lambda_trust" {
   }
 }
 
+data "aws_kms_alias" "ssm" {
+  name = "alias/aws/ssm"
+}
+
 resource "aws_iam_role" "detector" {
   name               = local.role_name
   assume_role_policy = data.aws_iam_policy_document.lambda_trust.json
@@ -28,10 +32,30 @@ data "aws_iam_policy_document" "detector" {
     resources = ["${aws_cloudwatch_log_group.detector.arn}:*"]
   }
 
+  # PutItem stores findings; GetItem and UpdateItem keep the alert repeat counters.
   statement {
     sid       = "StoreEvents"
-    actions   = ["dynamodb:PutItem"]
+    actions   = ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"]
     resources = [aws_dynamodb_table.events.arn]
+  }
+
+  statement {
+    sid       = "ReadSlackWebhook"
+    actions   = ["ssm:GetParameter"]
+    resources = ["arn:aws:ssm:${var.region}:${local.account_id}:parameter${var.slack_webhook_parameter}"]
+  }
+
+  # SecureString parameters are encrypted with the AWS-managed SSM key.
+  statement {
+    sid       = "DecryptSlackWebhook"
+    actions   = ["kms:Decrypt"]
+    resources = [data.aws_kms_alias.ssm.target_key_arn]
+  }
+
+  statement {
+    sid       = "PublishCriticalAlerts"
+    actions   = ["sns:Publish"]
+    resources = [aws_sns_topic.critical.arn]
   }
 
   # Terraform state is read for the sandbox and detector roots only (GET also covers HEAD).
