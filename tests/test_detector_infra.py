@@ -166,6 +166,7 @@ def test_detector_read_actions_are_explicit_and_cover_every_comparator_call() ->
     assert not re.search(
         r'"[a-z0-9]+:(Put|Delete|Create|Update|Attach|Detach)',
         tf.replace("dynamodb:PutItem", "")
+        .replace("dynamodb:UpdateItem", "")
         .replace("sqs:SendMessage", "")
         .replace("logs:CreateLogStream", "")
         .replace("logs:PutLogEvents", ""),
@@ -191,3 +192,24 @@ def test_runtime_config_is_not_committed() -> None:
     root = DETECTOR.parent.parent
     assert "clickops.yaml" in (root / ".gitignore").read_text().split()
     assert "clickops.yaml" in (root / "scripts" / "build_lambda.sh").read_text()
+
+
+def test_alerting_permissions_are_scoped_to_one_parameter_one_key_and_one_topic() -> None:
+    tf = _read("lambda_role.tf")
+    assert '"dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"' in tf
+    assert 'actions   = ["ssm:GetParameter"]' in tf
+    assert "parameter${var.slack_webhook_parameter}" in tf
+    assert 'name = "alias/aws/ssm"' in tf
+    assert 'actions   = ["kms:Decrypt"]' in tf and "target_key_arn" in tf
+    assert 'actions   = ["sns:Publish"]' in tf and "aws_sns_topic.critical.arn" in tf
+    assert "ssm:*" not in tf and "kms:*" not in tf and "sns:*" not in tf
+
+
+def test_lambda_gets_the_topic_and_parameter_names() -> None:
+    from clickops import alerts
+
+    tf = _read("lambda.tf")
+    assert alerts.TOPIC_ENV in tf and alerts.SLACK_PARAM_ENV in tf
+    assert 'default     = "/clickops/slack-webhook"' in _read("variables.tf") or (
+        alerts.DEFAULT_SLACK_PARAM in _read("variables.tf")
+    )
