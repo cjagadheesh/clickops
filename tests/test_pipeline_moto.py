@@ -20,7 +20,7 @@ def sandbox(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
     for var in ("CLICKOPS_SELF_ROLE_ARN", "CLICKOPS_TRUSTED_ROLES", "CLICKOPS_CONFIG"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("CLICKOPS_STATE_LOCATIONS", "tfstate/sandbox/terraform.tfstate")
-    handler._table = handler._config = handler._reader = None
+    handler._table = handler._config = handler._reader = handler._notifier = None
     with mock_aws():
         ec2 = boto3.client("ec2", region_name="ap-south-1")
         vpc = ec2.create_vpc(CidrBlock="10.0.0.0/16")["Vpc"]["VpcId"]
@@ -113,7 +113,7 @@ def sandbox(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
         )
         s3.put_object(Bucket="tfstate", Key="sandbox/terraform.tfstate", Body=json.dumps(state))
         yield ec2, iam, group, policy_arn
-    handler._table = handler._config = handler._reader = None
+    handler._table = handler._config = handler._reader = handler._notifier = None
 
 
 def _replay(group: str, fixture: tuple[str, str], **detail: Any) -> dict[str, Any]:
@@ -126,9 +126,8 @@ def _replay(group: str, fixture: tuple[str, str], **detail: Any) -> dict[str, An
     if "groupId" in params:
         params["groupId"] = group
     handler.handler(raw, None)
-    [item] = (
-        boto3.resource("dynamodb", region_name="ap-south-1").Table(store.TABLE_NAME).scan()["Items"]
-    )
+    scanned = boto3.resource("dynamodb", region_name="ap-south-1").Table(store.TABLE_NAME).scan()
+    [item] = [i for i in scanned["Items"] if i["sk"] != "window"]
     return item
 
 

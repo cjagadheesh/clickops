@@ -39,7 +39,7 @@ def pipeline(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
     monkeypatch.setenv("CLICKOPS_STATE_LOCATIONS", "tfstate/sandbox/terraform.tfstate")
     for key in list(compare_pkg.COMPARATORS):
         monkeypatch.setitem(compare_pkg.COMPARATORS, key, canned)
-    handler._table = handler._config = handler._reader = None
+    handler._table = handler._config = handler._reader = handler._notifier = None
     with mock_aws():
         boto3.client("dynamodb").create_table(**store.TABLE_DEFINITION)
         s3 = boto3.client("s3", region_name="ap-south-1")
@@ -48,11 +48,15 @@ def pipeline(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
         )
         s3.put_object(Bucket="tfstate", Key="sandbox/terraform.tfstate", Body=STATE.read_bytes())
         yield boto3.resource("dynamodb").Table(store.TABLE_NAME)
-    handler._table = handler._config = handler._reader = None
+    handler._table = handler._config = handler._reader = handler._notifier = None
 
 
 def stored(table: Any) -> list[dict[str, Any]]:
-    items = [json.loads(json.dumps(i, default=int)) for i in table.scan()["Items"]]
+    items = [
+        json.loads(json.dumps(i, default=int))
+        for i in table.scan()["Items"]
+        if i["sk"] != "window"  # alert dedup rows share the table
+    ]
     return sorted(items, key=lambda i: i["resource_key"])
 
 

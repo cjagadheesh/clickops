@@ -18,6 +18,7 @@ STATE = Path(__file__).resolve().parent / "fixtures" / "state" / "sandbox-state.
 
 
 def reset_globals() -> None:
+    handler._notifier = None
     handler._table = None
     handler._config = None
     handler._reader = None
@@ -55,7 +56,8 @@ def canned_drift(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def items(table: Any) -> list[dict[str, Any]]:
-    return sorted(table.scan()["Items"], key=lambda i: i["resource_key"])
+    events = [i for i in table.scan()["Items"] if i["sk"] != "window"]
+    return sorted(events, key=lambda i: i["resource_key"])
 
 
 def test_managed_drift_is_stored_with_diff_and_address(aws, canned_drift) -> None:  # type: ignore[no-untyped-def]
@@ -215,3 +217,74 @@ def test_logs_one_structured_json_line(aws, canned_drift, caplog) -> None:  # ty
     assert len(processed) == 1
     assert processed[0]["findings"][0]["outcome"] == "managed-drift"
     assert "10.0.0.0/8" not in "\n".join(lines)  # no diff or state values in logs
+
+
+# --- alerting ----------------------------------------------------------------------------------
+
+
+class RecordingNotifier:
+    def __init__(self) -> None:
+        self.calls: list[tuple[Any, str, list[str]]] = []
+
+    def notify(self, finding: Any, reason: str = "", targets: Any = None) -> str:
+        self.calls.append((finding, reason, list(targets or [])))
+        return "sent"
+
+
+def test_findings_are_alerted_with_restore_targets(aws, canned_drift) -> None:  # type: ignore[no-untyped-def]
+    notifier = RecordingNotifier()
+    handler._notifier = notifier  # type: ignore[assignment]
+    result = handler.handler(load_fixture("ec2", "AuthorizeSecurityGroupIngress"), None)
+    [(finding, reason, targets)] = notifier.calls
+    assert (finding.outcome.value, finding.severity.value) == ("managed-drift", "critical")
+    assert "world" in reason
+    assert targets == [
+        "aws_security_group.web",
+        "aws_vpc_security_group_ingress_rule.web_https",
+    ]
+    assert result["findings"][0]["alert"] == "sent"
+
+
+def test_every_finding_is_passed_to_the_notifier_which_decides_what_to_send(aws) -> None:  # type: ignore[no-untyped-def]
+    notifier = RecordingNotifier()
+    handler._notifier = notifier  # type: ignore[assignment]
+    handler.handler(load_fixture("ec2", "AuthorizeSecurityGroupIngress.ci"), None)
+    [(finding, _, targets)] = notifier.calls
+    assert finding.outcome.value == "ignored" and targets == []
+
+
+def test_a_retried_event_is_alerted_again_but_deduplicated_by_the_notifier(
+    aws, canned_drift
+) -> None:  # type: ignore[no-untyped-def]
+    notifier = RecordingNotifier()
+    handler._notifier = notifier  # type: ignore[assignment]
+    raw = load_fixture("ec2", "RevokeSecurityGroupIngress")
+    handler.handler(raw, None)
+    handler.handler(raw, None)
+    assert len(notifier.calls) == 2  # the real Notifier suppresses the second inside 10 minutes
+
+
+def test_a_failed_alert_fails_the_invocation_after_the_event_is_stored(aws, canned_drift) -> None:  # type: ignore[no-untyped-def]
+    class Failing:
+        def notify(self, *args: Any, **kwargs: Any) -> str:
+            raise RuntimeError("Slack is down")
+
+    handler._notifier = Failing()  # type: ignore[assignment]
+    with pytest.raises(RuntimeError):
+        handler.handler(load_fixture("ec2", "RevokeSecurityGroupIngress"), None)
+    assert len(items(aws)) == 1  # stored, so the retry only has to alert
+
+
+def test_real_notifier_posts_once_for_repeat_events(aws, canned_drift) -> None:  # type: ignore[no-untyped-def]
+    boto3.client("ssm").put_parameter(
+        Name="/clickops/slack-webhook", Type="SecureString", Value="https://hooks.example.test/x"
+    )
+    posted: list[Any] = []
+    from clickops.alerts import Notifier
+
+    handler._notifier = Notifier(handler._get_table(), post=lambda url, p: posted.append(p))
+    raw = load_fixture("ec2", "RevokeSecurityGroupIngress")
+    first = handler.handler(raw, None)
+    second = handler.handler(raw, None)
+    assert [first["findings"][0]["alert"], second["findings"][0]["alert"]] == ["sent", "suppressed"]
+    assert len(posted) == 1
