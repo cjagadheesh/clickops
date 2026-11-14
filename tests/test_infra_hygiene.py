@@ -28,9 +28,10 @@ def test_no_account_ids_or_keys_in_infra() -> None:
 
 
 def test_no_slack_webhook_urls_are_tracked() -> None:
+    needle = "hooks.slack.com" + "/services/"  # split so this file does not match itself
     for path in _tracked("*"):
         text = (ROOT / path).read_text(errors="ignore") if (ROOT / path).is_file() else ""
-        assert "hooks.slack.com/services/" not in text, path
+        assert needle not in text, path
 
 
 def test_webhook_script_reads_the_url_silently_and_never_echoes_it() -> None:
