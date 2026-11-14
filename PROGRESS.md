@@ -412,3 +412,28 @@
 **Needs the human**
 - After applying `infra/detector`, run `scripts/force_error.sh` (Day 14) and confirm the dead-lettered message and alarm; then `scripts/invoke_fixture.sh ec2/AuthorizeSecurityGroupIngress` should now store a `managed-drift` item with a diff (or an AccessDenied that names a missing read permission).
 - Rebuild the Lambda zip before applying so it contains the new handler.
+
+## Day 20: Slack and email alerts
+
+**Built**
+- `clickops/alerts.py`:
+  - `render_slack` builds the Block Kit message: a header with a severity icon and the outcome title, fields for severity, outcome, resource, who (display name and source: AWS console or CLI/API), event and UTC time, the diff as a short code block (`+` live, `-` coded; lists as added and removed items, policy maps by changed name, scalars as old and new; clipped at 14 lines), the exact `terraform apply -target=...` command (shell-quoted) for managed resources, and a context line with the reason and any suppressed repeats. Shadow creates have no restore command.
+  - `render_email` builds the plain-text body for critical findings. `should_alert` skips `ignored`, `unresolved` and severity `none`.
+  - `Notifier.notify` posts to the webhook read from the SSM SecureString `/clickops/slack-webhook` (cached in memory, never logged; botocore debug logging is held at WARNING so response bodies cannot leak it) and publishes critical findings to `clickops-critical`. A missing webhook parameter logs a warning and skips Slack (email still goes out); a Slack failure raises.
+  - Deduplication: a second finding for the same resource and actor within 10 minutes only increments a counter in a `window` row in `clickops-events` (sparse, so `clickops events` never shows it, with a TTL); the next alert after the window says how many were suppressed. The window opens only after a successful send, so a failed send is retried by Lambda.
+- `handler.py`: after storing each finding it notifies with the restore targets (the resource's Terraform address plus its child resources, such as security group rules or bucket settings). The invocation fails if an alert cannot be sent, after the event is already stored.
+- `infra/detector`: the role may `ssm:GetParameter` on that one parameter, `kms:Decrypt` on the AWS-managed SSM key (`alias/aws/ssm`), `sns:Publish` on `clickops-critical`, and `dynamodb:GetItem` and `UpdateItem` for the counters; the Lambda gets `CLICKOPS_CRITICAL_TOPIC_ARN` and `CLICKOPS_SLACK_PARAM`.
+- `scripts/store_slack_webhook.sh`: the human's command. It reads the webhook URL with a hidden prompt (so it never reaches chat, shell history or git) and stores it as a tagged SecureString. The plain equivalent is `aws ssm put-parameter --name /clickops/slack-webhook --type SecureString --value '<paste URL>'`.
+- Tests: rendered payloads for managed drift (critical and warning), managed delete, shadow create and tamper, console versus CLI labelling, diff formats and clipping, quoting, email body, delivery to Slack and SNS, the repeat window (counter, reopening, other actors and resources), missing webhook, Slack failure and retry, no webhook URL in logs, `post_json` over https only, and a tracked-files scan for webhook URLs.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 635 passed.
+
+**Deviations**
+- Slack incoming webhooks cannot edit an earlier message, so "update a counter instead of sending a new message" is a DynamoDB counter, reported in the next alert after the window.
+- One commit (the webhook URL scan test) was pushed with a failing test because it matched its own source; the next commit fixed it.
+
+**Needs the human**
+- Run `AWS_PROFILE=clickops-admin scripts/store_slack_webhook.sh` and paste the Slack webhook URL when prompted (the agent never handles it).
+- Rebuild the Lambda zip and apply `infra/detector` (new permissions and environment variables).
+- "Done when": `AWS_PROFILE=clickops-admin scripts/invoke_fixture.sh ec2/AuthorizeSecurityGroupIngress` should post a message to `#clickops-alerts` (and send the critical email, once the SNS subscription is confirmed). The fixture's resource must exist in the sandbox state for a diff to appear.
