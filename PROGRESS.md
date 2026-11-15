@@ -437,3 +437,38 @@
 - Run `AWS_PROFILE=clickops-admin scripts/store_slack_webhook.sh` and paste the Slack webhook URL when prompted (the agent never handles it).
 - Rebuild the Lambda zip and apply `infra/detector` (new permissions and environment variables).
 - "Done when": `AWS_PROFILE=clickops-admin scripts/invoke_fixture.sh ec2/AuthorizeSecurityGroupIngress` should post a message to `#clickops-alerts` (and send the critical email, once the SNS subscription is confirmed). The fixture's resource must exist in the sandbox state for a diff to appear.
+
+## Day 21: real end-to-end and week-3 review (code part)
+
+**Built**
+- `scripts/e2e_alerts.sh` (needs `CONFIRM=yes` and approval): allows SSH from `0.0.0.0/0` on the sandbox `admin` group and attaches `AmazonS3FullAccess` to `clickops-sandbox-app`, and for each waits for the stored finding and checks the outcome and severity (critical and warning). It does not revert anything; reverting is `terraform apply` in `infra/sandbox`, which stays with the human.
+- `scripts/wait_for_finding.py`: polls the events table through the day index for a resource and event, prints the measured delay, actor, outcome and severity as JSON, and exits non-zero on a timeout or mismatch. Reusable for the full end-to-end run later.
+- `docs/alert-examples.md`: the Slack payload and email for both scenarios, rendered from fixtures by `scripts/render_example_alerts.py`; a test fails when the doc is stale.
+- Offline evidence for the two scenarios: `tests/test_pipeline_moto.py` already runs both through the real comparators and rules (world SSH is critical with the added rule in the diff; attaching a managed policy is a warning with the diff).
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 643 passed.
+
+**Deviations**
+- None in the code. The live part of the day is not done: there are no AWS credentials here.
+
+**Needs the human (the day's "Done when" is not met until then)**
+- Make sure everything below is in place: the Day 3 and 4 applies, the four repository variables, the Slack webhook stored with `scripts/store_slack_webhook.sh`, the SNS email subscription confirmed, a freshly built Lambda zip and `infra/detector` applied.
+- Run `CONFIRM=yes AWS_PROFILE=clickops-admin scripts/e2e_alerts.sh`. It prints the delay for each scenario; copy those numbers here. Confirm a red critical message in `#clickops-alerts` plus an email for the SSH change, and an orange warning showing the diff for the policy attachment.
+- Revert with `terraform apply` in `infra/sandbox`, and check the two revert events are stored as `cli-human` (and ignored only if they match state).
+
+**Week-3 summary (Days 15-21)**
+
+| Day | Code and docs | AWS-dependent "Done when" |
+| --- | --- | --- |
+| 15 state reader | done: format 4 index by type and ID and by ARN, parent mapping, ETag cache, no values logged | real sandbox state capture (fixture is synthetic) |
+| 16 SG and IAM resolvers | done | confirm real `ModifySecurityGroupRules` carries `groupId` |
+| 17 other resolvers | done: S3, EC2, Lambda, Route 53, unwatched events logged once | replay real recordings |
+| 18 comparators | done: six types, moto tests per attribute, explicit read permissions | first real run shows any missing permission |
+| 19 rules and pipeline | done: outcomes, critical overrides, tag and config handling, golden tests, failures raise | DLQ delivery check with `scripts/force_error.sh` |
+| 20 alerts | done: Slack Block Kit, email, repeat window, SSM and SNS permissions | store the webhook, then post a real message |
+| 21 live end to end | script and examples done | the live run, the delays and the revert |
+
+- 643 tests pass. Every fixture goes through normalize, classify, resolve, state lookup, compare, decide, store and alert against moto, with golden files for the stored items.
+- Remaining AWS work, in dependency order: apply bootstrap and sandbox (Days 3-4), set the four repository variables, store the Slack webhook, build the Lambda zip and apply `infra/detector`, confirm the SNS subscription, run the checks from Days 11-14 and 19-20, then `scripts/e2e_alerts.sh` and revert.
+- Risks to watch on the first live run: the exact CloudTrail field for the console flag (Day 9), read permissions the comparators need beyond the ones granted (Day 18), `clickops-ci` permissions for the detector plan and apply (Day 5), and the CloudTrail-to-EventBridge delay (Day 13).
