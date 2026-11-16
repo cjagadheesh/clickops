@@ -15,7 +15,11 @@ from rich.markup import escape
 from rich.table import Table
 
 from clickops import store
+from clickops.config import ConfigError, load_config
 from clickops.doctor import run_checks
+from clickops.scan import ShadowResource, open_table
+from clickops.scan import scan as run_scan
+from clickops.state import StateError, StateReader
 
 app = typer.Typer(help="Detect and import out-of-Terraform AWS changes.", no_args_is_help=True)
 
@@ -107,3 +111,38 @@ def events(
         Console().print(events_table(items))
     else:
         Console().print(f"No events in the last {since}.")
+
+
+def shadow_table(resources: list[ShadowResource]) -> Table:
+    table = Table(title="Shadow resources (in AWS, in no Terraform state)")
+    for col in ("Type", "ID", "Name", "Created (UTC)", "Creator"):
+        table.add_column(col, overflow="fold")
+    for r in resources:
+        created = f"{r.created:%Y-%m-%d %H:%M}" if r.created else ""
+        table.add_row(
+            escape(r.type), escape(r.id), escape(r.name), created, escape(r.creator or "")
+        )
+    return table
+
+
+@app.command()
+def scan(
+    config: Annotated[Path, typer.Option("--config", "-c", help="Path to clickops.yaml.")] = Path(
+        "clickops.yaml"
+    ),
+    region: Annotated[str, typer.Option(help="Region to scan.")] = "ap-south-1",
+    as_json: Annotated[bool, typer.Option("--json", help="Print JSON instead of a table.")] = False,
+) -> None:
+    """List shadow resources: they exist in AWS but in no configured Terraform state."""
+    try:
+        index = StateReader(load_config(config).state_locations).load()
+    except (ConfigError, StateError) as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    resources = run_scan(index, region, open_table(region))
+    if as_json:
+        typer.echo(json.dumps([r.to_json() for r in resources], indent=2))
+    elif resources:
+        Console().print(shadow_table(resources))
+    else:
+        Console().print("No shadow resources: everything found is in Terraform state.")
