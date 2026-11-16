@@ -472,3 +472,20 @@
 - 643 tests pass. Every fixture goes through normalize, classify, resolve, state lookup, compare, decide, store and alert against moto, with golden files for the stored items.
 - Remaining AWS work, in dependency order: apply bootstrap and sandbox (Days 3-4), set the four repository variables, store the Slack webhook, build the Lambda zip and apply `infra/detector`, confirm the SNS subscription, run the checks from Days 11-14 and 19-20, then `scripts/e2e_alerts.sh` and revert.
 - Risks to watch on the first live run: the exact CloudTrail field for the console flag (Day 9), read permissions the comparators need beyond the ones granted (Day 18), `clickops-ci` permissions for the detector plan and apply (Day 5), and the CloudTrail-to-EventBridge delay (Day 13).
+
+## Day 22: `clickops scan`
+
+**Built**
+- `clickops/scan.py`: `scan(index, region, table)` lists live resources of the six types with read-only calls and returns those whose Terraform type and ID are in no state file, sorted by type and ID. Exclusions: the default security group of every VPC, terminated and shutting-down instances, roles under `/aws-service-role/`, `AWSReservedSSO_*` roles, AWS-managed policies (only customer-managed ones are listed), buckets outside the scanned region, and NS and SOA records. Records of a hosted zone that state does not know are not listed one by one (the zone is reported instead). A resource's creator is the actor of its first stored `shadow-create` event in `clickops-events`; a missing table or no stored event leaves it blank rather than failing.
+- `clickops scan [--config] [--region] [--json]`: reads the configured state files, prints a rich table (type, ID, name, created date where AWS gives one, creator) or JSON, and says so when nothing is unmanaged. A bad config or state file exits with code 2.
+- `tests/test_scan.py`: moto tests for every exclusion, managed versus unmanaged matching per type, the creator lookup (found, unknown, table missing), ordering and JSON, and the command itself.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 660 passed.
+
+**Deviations**
+- Lambda functions have no creation date in the API, so their "created" column is blank.
+- Instance launch times and bucket and role creation dates are shown; policies show their creation date.
+
+**Needs the human**
+- Run `AWS_PROFILE=clickops-admin uv run clickops scan --config clickops.yaml` against the real sandbox account (with `clickops.yaml` copied from `clickops.example.yaml` and real state locations) and write the list it prints into this file. The day's "Done when" expects only genuinely unmanaged things there (for example the bootstrap state bucket and role if they are not in a configured state, and any leftover scratch resources from the fixture recording). The identity needs read access to EC2, IAM, S3, Lambda, Route 53 and the events table.
