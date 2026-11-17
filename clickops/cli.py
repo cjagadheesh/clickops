@@ -17,6 +17,7 @@ from rich.table import Table
 from clickops import store
 from clickops.config import ConfigError, load_config
 from clickops.doctor import run_checks
+from clickops.importer import ImporterError, generate_config, write_imports
 from clickops.scan import ShadowResource, open_table
 from clickops.scan import scan as run_scan
 from clickops.state import StateError, StateReader
@@ -146,3 +147,63 @@ def scan(
         Console().print(shadow_table(resources))
     else:
         Console().print("No shadow resources: everything found is in Terraform state.")
+
+
+def pick_resources(resources: list[ShadowResource], only: list[str]) -> list[ShadowResource]:
+    """Keep resources whose ID or ``type/id`` is in ``only`` (all of them when it is empty)."""
+    if not only:
+        return resources
+    wanted = set(only)
+    return [r for r in resources if r.id in wanted or f"{r.type}/{r.id}" in wanted]
+
+
+@app.command(name="import")
+def import_shadow(
+    config: Annotated[Path, typer.Option("--config", "-c", help="Path to clickops.yaml.")] = Path(
+        "clickops.yaml"
+    ),
+    region: Annotated[str, typer.Option(help="Region to scan and import from.")] = "ap-south-1",
+    only: Annotated[
+        list[str] | None,
+        typer.Option("--only", help="Import just this ID or type/id (repeatable)."),
+    ] = None,
+    out: Annotated[Path, typer.Option(help="Folder for the timestamped output.")] = Path("imports"),
+    no_terraform: Annotated[
+        bool, typer.Option("--no-terraform", help="Only write the import blocks.")
+    ] = False,
+    terraform: Annotated[str, typer.Option(help="Terraform binary.")] = "terraform",
+) -> None:
+    """Write Terraform import blocks for shadow resources and draft their configuration.
+
+    Runs `terraform plan -generate-config-out` in a temporary directory; nothing is applied.
+    """
+    console = Console()
+    try:
+        index = StateReader(load_config(config).state_locations).load()
+    except (ConfigError, StateError) as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    chosen = pick_resources(run_scan(index, region, open_table(region)), only or [])
+    if not chosen:
+        console.print("Nothing to import: no matching shadow resources.")
+        return
+    directory, imports_path = write_imports(chosen, out)
+    console.print(f"Wrote {len(chosen)} import block(s) to {escape(str(imports_path))}")
+    if no_terraform:
+        return
+    try:
+        result = generate_config(directory, region, terraform)
+    except ImporterError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        typer.echo(f"The import blocks are kept in {imports_path}.", err=True)
+        raise typer.Exit(3) from exc
+    if result.plan_summary:
+        console.print(escape(result.plan_summary))
+    if result.validate_ok:
+        console.print(f"Generated config validates: {escape(str(result.generated_path))}")
+        return
+    console.print("[yellow]Generated config does not validate yet:[/]")
+    for error in result.errors:
+        console.print(f"  - {escape(' '.join(error.split()))}")
+    console.print(f"Kept as a starting point: {escape(str(result.generated_path))}")
+    raise typer.Exit(1)
