@@ -489,3 +489,24 @@
 
 **Needs the human**
 - Run `AWS_PROFILE=clickops-admin uv run clickops scan --config clickops.yaml` against the real sandbox account (with `clickops.yaml` copied from `clickops.example.yaml` and real state locations) and write the list it prints into this file. The day's "Done when" expects only genuinely unmanaged things there (for example the bootstrap state bucket and role if they are not in a configured state, and any leftover scratch resources from the fixture recording). The identity needs read access to EC2, IAM, S3, Lambda, Route 53 and the events table.
+
+## Day 23: `clickops import`
+
+**Built**
+- `clickops/importer.py`:
+  - `render_imports` writes one `import { to = <type>.<name>  id = "<id>" }` block per shadow resource, using each type's provider import ID: the group ID, role name, policy ARN, bucket name, instance ID, function name, hosted zone ID, and `ZONEID_name_TYPE` for a record. Names are derived from the resource name, made valid and unique (records of different types get different names).
+  - `write_imports` creates `imports/<timestamp>/imports.tf` (the folder is gitignored).
+  - `generate_config` copies the blocks into a temporary directory with a `providers.tf` (Terraform `>= 1.10`, AWS provider `~> 5.81`, the region), runs `terraform init`, `terraform plan -generate-config-out=generated.tf` and `terraform validate -json`, keeps `generated.tf` next to `imports.tf`, and records the plan summary line. If validation fails the file is kept with a comment header listing the errors. A failed init or plan raises with the end of Terraform's output; a missing binary is reported clearly. Nothing is ever applied.
+- `clickops import [--config] [--region] [--only ID|type/id ...] [--out DIR] [--no-terraform] [--terraform BIN]`: scans for shadow resources, writes the blocks, runs the steps and prints the plan summary and validation result. Exit codes: 0 done, 1 generated config does not validate yet, 2 bad config or state, 3 Terraform failed or is missing (the import blocks are kept).
+- `scripts/test_import_bucket.sh` (needs `CONFIRM=yes`): creates a scratch bucket, imports it, requires "1 to import, 0 to add, 0 to change, 0 to destroy" and a validating config, and deletes the bucket on exit.
+- Tests: import blocks for all six types, name rules, the exact Terraform steps with a fake runner (order, flags, temporary directory cleaned up, nothing applied), validation errors, failures, and the command against moto with that fake runner.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 683 passed.
+
+**Deviations**
+- Terraform is not installed in this environment, so the real `terraform init`, `plan -generate-config-out` and `validate` were never run; they are covered with a fake runner. The provider is pinned the same way as the repo's roots, without the repo's `default_tags`, so generated configs stay free of them.
+- A security group rule would use its `sgr-` ID, but `scan` reports groups, not rules, so rule imports are not generated yet.
+
+**Needs the human (the day's "Done when" is not met until then)**
+- With Terraform 1.10+, a real `clickops.yaml` and AWS access, run `CONFIRM=yes AWS_PROFILE=clickops-admin scripts/test_import_bucket.sh`. It should end with "OK" and show the plan line "1 to import, 0 to add, 0 to change, 0 to destroy". If Terraform's generated config has errors, the script fails and the kept `generated.tf` shows them in its header.
