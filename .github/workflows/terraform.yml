@@ -43,6 +43,25 @@ jobs:
             echo "::endgroup::"
           done
 
+  policies:
+    # The clickops-ci policy templates are applied by hand with the admin profile, so CI checks
+    # them directly instead of through a plan.
+    needs: static
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv python install 3.12 && uv sync --frozen
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.CLICKOPS_CI_ROLE_ARN }}
+          aws-region: ap-south-1
+      - name: validate the clickops-ci policy templates with Access Analyzer
+        run: uv run python scripts/validate_policies.py --templates infra/bootstrap/policies
+
   plan:
     if: github.event_name == 'pull_request'
     needs: static
@@ -62,12 +81,13 @@ jobs:
         run: |
           if ls infra/${{ matrix.root }}/*.tf >/dev/null 2>&1; then echo "found=true" >> "$GITHUB_OUTPUT"; fi
       - uses: astral-sh/setup-uv@v5
-        if: steps.has.outputs.found == 'true' && matrix.root == 'detector'
+        if: steps.has.outputs.found == 'true'
+      - name: install Python
+        if: steps.has.outputs.found == 'true'
+        run: uv python install 3.12 && uv sync --frozen
       - name: build Lambda package
         if: steps.has.outputs.found == 'true' && matrix.root == 'detector'
-        run: |
-          uv python install 3.12
-          scripts/build_lambda.sh
+        run: scripts/build_lambda.sh
       - uses: hashicorp/setup-terraform@v3
         if: steps.has.outputs.found == 'true'
         with:
@@ -87,12 +107,18 @@ jobs:
         run: |
           terraform init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="region=ap-south-1"
           set +e
-          terraform plan -input=false -no-color -lock-timeout=60s -detailed-exitcode > "$RUNNER_TEMP/plan.txt" 2>&1
+          terraform plan -input=false -no-color -lock-timeout=60s -detailed-exitcode -out=tfplan > "$RUNNER_TEMP/plan.txt" 2>&1
           code=$?
           set -e
           cat "$RUNNER_TEMP/plan.txt"
           # exit code 2 means changes are pending, which is not a failure
           if [ "$code" -eq 1 ]; then exit 1; fi
+      - name: validate IAM policies with Access Analyzer
+        if: steps.has.outputs.found == 'true'
+        working-directory: infra/${{ matrix.root }}
+        run: |
+          terraform show -json tfplan > "$RUNNER_TEMP/plan.json"
+          uv run --project ../.. python ../../scripts/validate_policies.py --plan "$RUNNER_TEMP/plan.json"
       - name: comment plan
         if: steps.has.outputs.found == 'true' && always()
         uses: actions/github-script@v7
