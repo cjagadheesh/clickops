@@ -7,3 +7,7 @@ output "ci_role_arn" {
   description = "Role assumed by GitHub Actions through OIDC."
   value       = aws_iam_role.ci.arn
 }
+
+output "ci_policy_arns" {
+  value = { for name, policy in aws_iam_policy.ci : name => policy.arn }
+}
