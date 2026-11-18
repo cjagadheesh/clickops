@@ -510,3 +510,29 @@
 
 **Needs the human (the day's "Done when" is not met until then)**
 - With Terraform 1.10+, a real `clickops.yaml` and AWS access, run `CONFIRM=yes AWS_PROFILE=clickops-admin scripts/test_import_bucket.sh`. It should end with "OK" and show the plan line "1 to import, 0 to add, 0 to change, 0 to destroy". If Terraform's generated config has errors, the script fails and the kept `generated.tf` shows them in its header.
+
+## Day 24: least privilege for both roles
+
+**Built**
+- `infra/bootstrap/policies/*.json.tftpl`: the `clickops-ci` permissions rewritten as five resource-scoped policy templates (state and buckets, EC2, IAM and Lambda, data and events, observability and DNS), attached as customer-managed policies through `templatefile` and `aws_iam_role_policy_attachment`. The old inline policy with `iam:*`, `lambda:*`, `dynamodb:*`, `sns:*`, `sqs:*`, `events:*`, `cloudtrail:*`, `logs:*`, `cloudwatch:*` and `s3:*` on `clickops-*` is gone.
+  - No wildcard actions: every action is listed. `Resource: *` remains only on read-only list and describe calls and on calls AWS cannot scope (`CreateHostedZone`, the Route 53 lookups, `GetChange`, `kms:ListAliases`, `access-analyzer:ValidatePolicy`).
+  - State objects are limited to `sandbox/*` and `detector/*`; the managed buckets are named exactly; DynamoDB, SNS, SQS, the trail, the Lambda functions, the three clickops roles, the log groups and `clickops-*` rules and alarms are named; EC2 writes are limited to the account and `ap-south-1`.
+  - `iam:AttachRolePolicy` may attach only `AWSLambdaBasicExecutionRole`; `iam:PassRole` is limited to the roles that need it and to Lambda or EventBridge; there is no way to create users, other roles or arbitrary policies.
+- The detector's own policy (Day 18-20) was already listed action by action and scoped by ARN where AWS supports it; its remaining account-wide read scopes (any role, bucket, function or hosted zone) are needed because which resources to read comes from state.
+- `scripts/validate_policies.py`: sends policies to IAM Access Analyzer and fails on any `ERROR` or `SECURITY_WARNING` finding. CI runs it on every IAM policy and trust policy found in the `sandbox` and `detector` plans (`terraform plan -out`, `terraform show -json`) and, in a separate job, on the CI policy templates rendered with placeholders. Policies whose documents are unknown until apply are skipped by the plan check.
+- `docs/threat-model.md`: what each role can do, what an attacker holding the detector's role could do (read the two state files, read the Slack webhook, write events, read the six resource types) and what clickops does not protect against.
+- Tests: size limit per policy, no wildcard actions, `*` resources only for the listed calls, resources inside this account and region, IAM actions limited to the three clickops roles, attachment and `PassRole` conditions, state paths, the validator against a fake Access Analyzer, the workflow steps and the threat-model content.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 715 passed.
+
+**Deviations**
+- EC2 resources cannot be named before they exist, so EC2 permissions are scoped to the account and region rather than to tags; tag conditions would be a v0.2 hardening.
+- The CI policy templates reach CI only after the owner applies `infra/bootstrap` with the admin profile (CI cannot change its own role); until then the old policy stays in force.
+- Terraform and Access Analyzer could not be run here, so the policies were never exercised against AWS.
+
+**Needs the human**
+- Run `terraform plan` in `infra/bootstrap` with the admin profile (the plan should replace the inline policy with five managed policies and attachments), then approve the apply.
+- Run `uv run python scripts/validate_policies.py --templates infra/bootstrap/policies` with AWS access to confirm Access Analyzer reports no errors or security warnings; CI also does this on the next pull request.
+- Open a pull request that touches `infra/` and check that the plan job still succeeds with the narrowed role. An `AccessDenied` in a plan or apply names the missing action; add it to the matching template (the first real plans are the likeliest place for a missing read action such as an extra `ec2:Describe*` call) and re-run.
+- Repeat the Day 21 scenarios (`scripts/e2e_alerts.sh`) after the apply to confirm both alerts still arrive.
