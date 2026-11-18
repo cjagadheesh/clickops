@@ -1,0 +1,152 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "TrailRead",
+      "Effect": "Allow",
+      "Action": [
+        "cloudtrail:DescribeTrails"
+      ],
+      "Resource": [
+        "*"
+      ]
+    },
+    {
+      "Sid": "Trail",
+      "Effect": "Allow",
+      "Action": [
+        "cloudtrail:CreateTrail",
+        "cloudtrail:DeleteTrail",
+        "cloudtrail:UpdateTrail",
+        "cloudtrail:GetTrail",
+        "cloudtrail:GetTrailStatus",
+        "cloudtrail:StartLogging",
+        "cloudtrail:StopLogging",
+        "cloudtrail:PutEventSelectors",
+        "cloudtrail:GetEventSelectors",
+        "cloudtrail:GetInsightSelectors",
+        "cloudtrail:ListTags",
+        "cloudtrail:AddTags",
+        "cloudtrail:RemoveTags"
+      ],
+      "Resource": [
+        "arn:aws:cloudtrail:${region}:${account_id}:trail/clickops-trail"
+      ]
+    },
+    {
+      "Sid": "LogGroupRead",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogGroups"
+      ],
+      "Resource": [
+        "*"
+      ]
+    },
+    {
+      "Sid": "DetectorLogGroup",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:PutRetentionPolicy",
+        "logs:DeleteRetentionPolicy",
+        "logs:ListTagsForResource",
+        "logs:ListTagsLogGroup",
+        "logs:TagResource",
+        "logs:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:logs:${region}:${account_id}:log-group:/aws/lambda/clickops-detector",
+        "arn:aws:logs:${region}:${account_id}:log-group:/aws/lambda/clickops-detector:*",
+        "arn:aws:logs:${region}:${account_id}:log-group:/aws/lambda/clickops-sandbox-hello",
+        "arn:aws:logs:${region}:${account_id}:log-group:/aws/lambda/clickops-sandbox-hello:*"
+      ]
+    },
+    {
+      "Sid": "AlarmRead",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:DescribeAlarms"
+      ],
+      "Resource": [
+        "*"
+      ]
+    },
+    {
+      "Sid": "Alarms",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:PutMetricAlarm",
+        "cloudwatch:DeleteAlarms",
+        "cloudwatch:ListTagsForResource",
+        "cloudwatch:TagResource",
+        "cloudwatch:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:cloudwatch:${region}:${account_id}:alarm:clickops-*"
+      ]
+    },
+    {
+      "Sid": "HostedZoneCreateAndLookup",
+      "Effect": "Allow",
+      "Action": [
+        "route53:CreateHostedZone",
+        "route53:ListHostedZones",
+        "route53:ListHostedZonesByName",
+        "route53:GetChange"
+      ],
+      "Resource": [
+        "*"
+      ]
+    },
+    {
+      "Sid": "HostedZones",
+      "Effect": "Allow",
+      "Action": [
+        "route53:DeleteHostedZone",
+        "route53:GetHostedZone",
+        "route53:ChangeResourceRecordSets",
+        "route53:ListResourceRecordSets",
+        "route53:ChangeTagsForResource",
+        "route53:ListTagsForResource",
+        "route53:AssociateVPCWithHostedZone",
+        "route53:DisassociateVPCFromHostedZone"
+      ],
+      "Resource": [
+        "arn:aws:route53:::hostedzone/*"
+      ]
+    },
+    {
+      "Sid": "LookUpTheSsmKey",
+      "Effect": "Allow",
+      "Action": [
+        "kms:ListAliases"
+      ],
+      "Resource": [
+        "*"
+      ]
+    },
+    {
+      "Sid": "DescribeTheSsmKey",
+      "Effect": "Allow",
+      "Action": [
+        "kms:DescribeKey"
+      ],
+      "Resource": [
+        "arn:aws:kms:${region}:${account_id}:alias/aws/ssm",
+        "arn:aws:kms:${region}:${account_id}:key/*"
+      ]
+    },
+    {
+      "Sid": "ValidatePoliciesInCi",
+      "Effect": "Allow",
+      "Action": [
+        "access-analyzer:ValidatePolicy"
+      ],
+      "Resource": [
+        "*"
+      ]
+    }
+  ]
+}
