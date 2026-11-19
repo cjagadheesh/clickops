@@ -536,3 +536,24 @@
 - Run `uv run python scripts/validate_policies.py --templates infra/bootstrap/policies` with AWS access to confirm Access Analyzer reports no errors or security warnings; CI also does this on the next pull request.
 - Open a pull request that touches `infra/` and check that the plan job still succeeds with the narrowed role. An `AccessDenied` in a plan or apply names the missing action; add it to the matching template (the first real plans are the likeliest place for a missing read action such as an extra `ec2:Describe*` call) and re-run.
 - Repeat the Day 21 scenarios (`scripts/e2e_alerts.sh`) after the apply to confirm both alerts still arrive.
+
+## Day 25: tamper alerts and `clickops status`
+
+**Built**
+- Tamper detection: `StopLogging`, `DeleteTrail`, `UpdateTrail` and `PutEventSelectors` on `clickops-trail`; `DisableRule`, `DeleteRule` and `RemoveTargets` on any `clickops-*` rule; `DeleteFunction` and `UpdateFunctionCode` on `clickops-detector`. By anyone except `clickops-ci` (including humans, AWS services and the detector's own role) they become a critical `tamper` outcome, decided before every other rule so tags, ignore rules and severity overrides cannot silence them; by CI they are `ignored`. The handler does not read Terraform state for them, so tamper alerts work even if state is unreadable. The alert tells the reader to `cd infra/detector && terraform apply`.
+- New resolvers for CloudTrail and EventBridge calls (`resolvers/own.py`, resource types `trail` and `event-rule`).
+- `infra/detector`: a third rule `clickops-tamper` (pattern `patterns/tamper.json`, home region) with the same target, DLQ and retries. A rule cannot see its own disable call, so this rule watches the other two and the regional rule watches it. The `global` pattern is now limited to `us-east-1` and the tamper pattern to `ap-south-1` so no event matches both. The Lambda events on the detector function still arrive through the regional rule.
+- Fixtures: seven CloudTrail and EventBridge tamper fixtures, two Lambda fixtures on `clickops-detector`, and CI variants; golden files for all of them. `scripts/test_event_patterns.sh` also checks the tamper pattern.
+- `clickops status` (`clickops/status.py`): CloudTrail logging on or off, each of the four rules enabled (three in `ap-south-1`, the forwarder in `us-east-1`), time and name of the last stored event (looked up through the day index, ignoring alert counters), dead-letter queue depth and open `clickops-*` alarms. Exit code 1 when anything is wrong.
+- README: the outcomes table now lists `tamper` and the commands.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 820 passed. Every tamper fixture produces a critical `tamper` finding through the full handler without state; the CI variants are ignored; `status` is tested against moto for each check.
+
+**Deviations**
+- A tamper call that disables the last remaining watcher cannot be seen by it. Two rules watch each other, the `us-east-1` forwarder is not watched at all, and `clickops status` reports the state of all four, so a periodic `status` run (or a check after every apply) is the backstop. This is recorded in the threat model's list of gaps.
+- Only `DeleteFunction` and `UpdateFunctionCode` are tamper calls on the detector function (as the plan lists); other changes to it are still `managed-drift` through the detector root's state.
+
+**Needs the human (the day's "Done when" is not met until then)**
+- Apply `infra/detector` (new rule and pattern changes), then run `AWS_PROFILE=clickops-admin uv run clickops status` and confirm every row says `ok`. Re-run `scripts/test_event_patterns.sh` to confirm all fixtures match the intended rules in EventBridge itself.
+- To see a live tamper alert, with approval, run `aws events disable-rule --name clickops-tamper` and then `aws events enable-rule --name clickops-tamper`; the disable should alert as `tamper`.
