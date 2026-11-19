@@ -117,9 +117,10 @@ def make_event(
     response: dict[str, Any] | None,
     actor: str = "cli",
     resources: list[dict[str, str]] | None = None,
+    seed: str = "",
 ) -> dict[str, Any]:
     console = actor == "console"
-    event_id = f"11111111-2222-4333-8444-{zlib.crc32((name + actor).encode()):012d}"
+    event_id = f"11111111-2222-4333-8444-{zlib.crc32((name + actor + seed).encode()):012d}"
     detail: dict[str, Any] = {
         "eventVersion": "1.10",
         "userIdentity": identity(actor),
@@ -195,6 +196,9 @@ def build() -> list[tuple[str, str, dict[str, Any]]]:
     iam = dict(service="iam", source="aws.iam", region=ue)
     lam = dict(service="lambda", source="aws.lambda", region=ap)
     r53 = dict(service="route53", source="aws.route53", region=ue)
+    trail = dict(service="cloudtrail", source="aws.cloudtrail", region=ap)
+    rules = dict(service="events", source="aws.events", region=ap)
+    trail_arn = f"arn:aws:cloudtrail:ap-south-1:{ACCOUNT}:trail/clickops-trail"
     c = dict(ec2=dict(service="ec2", source="aws.ec2", region=ap))["ec2"]
 
     def row(
@@ -582,6 +586,54 @@ def build() -> list[tuple[str, str, dict[str, Any]]]:
             {"id": ZONE},
             {"changeInfo": {"id": "/change/C0123456789ABD", "status": "PENDING"}},
         ),
+        # Tampering with clickops' own trail, rules and detector function.
+        row("cloudtrail", "StopLogging", trail, "StopLogging", {"name": trail_arn}, None),
+        row("cloudtrail", "DeleteTrail", trail, "DeleteTrail", {"name": "clickops-trail"}, None),
+        row(
+            "cloudtrail",
+            "UpdateTrail",
+            trail,
+            "UpdateTrail",
+            {"name": "clickops-trail", "isMultiRegionTrail": False},
+            {"name": "clickops-trail", "isMultiRegionTrail": False, "trailARN": trail_arn},
+        ),
+        row(
+            "cloudtrail",
+            "PutEventSelectors",
+            trail,
+            "PutEventSelectors",
+            {
+                "trailName": "clickops-trail",
+                "eventSelectors": [{"readWriteType": "ReadOnly", "includeManagementEvents": True}],
+            },
+            {"trailARN": trail_arn},
+        ),
+        row("events", "DisableRule", rules, "DisableRule", {"name": "clickops-regional"}, None),
+        row("events", "DeleteRule", rules, "DeleteRule", {"name": "clickops-global"}, None),
+        row(
+            "events",
+            "RemoveTargets",
+            rules,
+            "RemoveTargets",
+            {"rule": "clickops-regional", "ids": ["clickops-detector"]},
+            {"failedEntryCount": 0, "failedEntries": []},
+        ),
+        row(
+            "lambda",
+            "DeleteFunction20150331.tamper",
+            lam,
+            "DeleteFunction20150331",
+            {"functionName": "clickops-detector"},
+            None,
+        ),
+        row(
+            "lambda",
+            "UpdateFunctionCode20150331v2.tamper",
+            lam,
+            "UpdateFunctionCode20150331v2",
+            {"functionName": "clickops-detector", "publish": False},
+            {"functionName": "clickops-detector", "codeSha256": "def456"},
+        ),
     ]
 
 
@@ -590,6 +642,8 @@ ACTOR_VARIANTS = [
     ("ec2", "StopInstances", "service-linked"),
     ("ec2", "AuthorizeSecurityGroupIngress", "cloudformation"),
     ("iam", "PutRolePolicy", "self"),
+    ("cloudtrail", "StopLogging", "ci"),
+    ("events", "DisableRule", "ci"),
 ]
 
 
@@ -613,8 +667,12 @@ def main() -> None:
             "s3": "s3",
             "lambda": "lambda",
             "route53": "route53",
+            "cloudtrail": "cloudtrail",
+            "events": "events",
         }[dirname]
         kwargs = dict(kwargs, service=service)
+        if stem.endswith(".tamper"):
+            kwargs["seed"] = "tamper"  # same event name and actor as the sandbox fixture
         path.write_text(json.dumps(make_event(**kwargs), indent=2, sort_keys=True) + "\n")
 
 
