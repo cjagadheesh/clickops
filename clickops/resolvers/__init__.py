@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 
 from clickops.models import NormalizedEvent, ResourceRef
-from clickops.resolvers import ec2, iam, lambda_fn, route53, s3, sg
+from clickops.resolvers import ec2, iam, lambda_fn, own, route53, s3, sg
 from clickops.resolvers.base import Resolver
 
 logger = logging.getLogger("clickops")
@@ -21,6 +21,8 @@ REGISTRY: dict[str, list[Resolver]] = {
     "s3.amazonaws.com": [s3.resolve],
     "lambda.amazonaws.com": [lambda_fn.resolve],
     "route53.amazonaws.com": [route53.resolve],
+    "cloudtrail.amazonaws.com": [own.resolve_trail],
+    "events.amazonaws.com": [own.resolve_rule],
 }
 
 _logged_unknown: set[tuple[str, str]] = set()

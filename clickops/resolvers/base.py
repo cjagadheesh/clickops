@@ -18,6 +18,8 @@ EC2_INSTANCE = "ec2"
 LAMBDA_FUNCTION = "lambda"
 ROUTE53_ZONE = "route53-zone"
 ROUTE53_RECORD = "route53-record"
+TRAIL = "trail"
+EVENT_RULE = "event-rule"
 
 # The Terraform resource type that owns each kind of resource in state.
 STATE_TYPES: dict[str, str] = {
@@ -29,6 +31,8 @@ STATE_TYPES: dict[str, str] = {
     LAMBDA_FUNCTION: "aws_lambda_function",
     ROUTE53_ZONE: "aws_route53_zone",
     ROUTE53_RECORD: "aws_route53_record",
+    TRAIL: "aws_cloudtrail",
+    EVENT_RULE: "aws_cloudwatch_event_rule",
 }
 
 
