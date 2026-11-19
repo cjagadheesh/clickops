@@ -19,7 +19,7 @@ from clickops.config import Config, StateLocation, load_config
 from clickops.events import normalize
 from clickops.models import Actor, Finding, NormalizedEvent, Outcome, Severity
 from clickops.resolvers.base import find_in_state
-from clickops.rules import SKIPPED_ACTORS, decide
+from clickops.rules import SKIPPED_ACTORS, decide, is_tamper
 from clickops.state import StateReader
 
 logger = logging.getLogger("clickops")
@@ -105,8 +105,12 @@ def _findings(event: NormalizedEvent, actor: Actor) -> list[Result]:
         return [Result(finding, "no resource could be resolved from the event")]
 
     config = _get_config()
-    # Machine actors are ignored whatever they changed, so state is not read for them.
-    index = None if actor.actor_class in SKIPPED_ACTORS else _get_reader().load()
+    # Machine actors are ignored whatever they changed, and tampering with clickops' own resources
+    # needs no state, so state is only read when some resource still has to be looked up.
+    needs_state = actor.actor_class not in SKIPPED_ACTORS and not all(
+        is_tamper(event, ref) for ref in refs
+    )
+    index = _get_reader().load() if needs_state else None
     results = []
     for ref in refs:
         state = find_in_state(index, ref) if index is not None else None
