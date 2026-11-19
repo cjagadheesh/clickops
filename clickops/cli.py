@@ -21,6 +21,7 @@ from clickops.importer import ImporterError, generate_config, write_imports
 from clickops.scan import ShadowResource, open_table
 from clickops.scan import scan as run_scan
 from clickops.state import StateError, StateReader
+from clickops.status import collect as collect_status
 
 app = typer.Typer(help="Detect and import out-of-Terraform AWS changes.", no_args_is_help=True)
 
@@ -207,3 +208,21 @@ def import_shadow(
         console.print(f"  - {escape(' '.join(error.split()))}")
     console.print(f"Kept as a starting point: {escape(str(result.generated_path))}")
     raise typer.Exit(1)
+
+
+@app.command()
+def status(
+    region: Annotated[str, typer.Option(help="Region of the detector.")] = "ap-south-1",
+) -> None:
+    """Check the trail, the event rules, the dead-letter queue and the alarms."""
+    rows = collect_status(region)
+    table = Table(title="clickops status")
+    for col in ("Check", "Result", "Detail"):
+        table.add_column(col, overflow="fold")
+    for row in rows:
+        table.add_row(
+            escape(row.name), "[green]ok[/]" if row.ok else "[red]problem[/]", escape(row.detail)
+        )
+    Console().print(table)
+    if not all(r.ok for r in rows):
+        raise typer.Exit(1)
