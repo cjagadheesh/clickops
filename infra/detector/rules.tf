@@ -65,6 +65,39 @@ resource "aws_lambda_permission" "global" {
   source_arn    = aws_cloudwatch_event_rule.global.arn
 }
 
+# --- ap-south-1: changes to clickops' own trail and rules ---------------------------------------
+# A rule cannot see its own DisableRule call, so this second rule watches the first (and the
+# detector's own function is covered by the regional rule's Lambda events).
+
+resource "aws_cloudwatch_event_rule" "tamper" {
+  name           = "clickops-tamper"
+  description    = "Calls that stop or change clickops' own trail and rules"
+  event_pattern  = file("${path.module}/patterns/tamper.json")
+  event_bus_name = "default"
+}
+
+resource "aws_cloudwatch_event_target" "tamper" {
+  rule = aws_cloudwatch_event_rule.tamper.name
+  arn  = aws_lambda_function.detector.arn
+
+  dead_letter_config {
+    arn = aws_sqs_queue.dlq.arn
+  }
+
+  retry_policy {
+    maximum_retry_attempts       = 2
+    maximum_event_age_in_seconds = 3600
+  }
+}
+
+resource "aws_lambda_permission" "tamper" {
+  statement_id  = "AllowEventBridgeTamper"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.detector.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.tamper.arn
+}
+
 # EventBridge needs permission to put failed deliveries on the DLQ.
 data "aws_iam_policy_document" "dlq" {
   statement {
@@ -83,6 +116,7 @@ data "aws_iam_policy_document" "dlq" {
       values = [
         aws_cloudwatch_event_rule.regional.arn,
         aws_cloudwatch_event_rule.global.arn,
+        aws_cloudwatch_event_rule.tamper.arn,
       ]
     }
   }

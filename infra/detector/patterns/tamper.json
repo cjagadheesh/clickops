@@ -1,0 +1,23 @@
+{
+  "detail-type": [
+    "AWS API Call via CloudTrail"
+  ],
+  "source": [
+    "aws.cloudtrail",
+    "aws.events"
+  ],
+  "region": [
+    "ap-south-1"
+  ],
+  "detail": {
+    "eventName": [
+      "StopLogging",
+      "DeleteTrail",
+      "UpdateTrail",
+      "PutEventSelectors",
+      "DisableRule",
+      "DeleteRule",
+      "RemoveTargets"
+    ]
+  }
+}

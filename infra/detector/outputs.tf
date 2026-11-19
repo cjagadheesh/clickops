@@ -26,6 +26,7 @@ output "event_rules" {
   value = {
     regional = aws_cloudwatch_event_rule.regional.name
     global   = aws_cloudwatch_event_rule.global.name
+    tamper   = aws_cloudwatch_event_rule.tamper.name
     forward  = aws_cloudwatch_event_rule.forward.name
   }
 }
