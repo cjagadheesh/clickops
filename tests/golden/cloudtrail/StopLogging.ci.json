@@ -1,0 +1,24 @@
+[
+  {
+    "account": "111122223333",
+    "actor_arn": "arn:aws:sts::111122223333:assumed-role/clickops-ci/GitHubActions",
+    "actor_class": "ci",
+    "actor_name": "GitHubActions",
+    "day": "2026-10-26",
+    "event_id": "11111111-2222-4333-8444-003144541804",
+    "event_name": "StopLogging",
+    "event_source": "cloudtrail.amazonaws.com",
+    "expires_at": 1800785730,
+    "outcome": "ignored",
+    "reason": "actor is ci",
+    "region": "ap-south-1",
+    "resource_id": "clickops-trail",
+    "resource_key": "trail#clickops-trail",
+    "resource_type": "trail",
+    "severity": "none",
+    "sk": "2026-10-26T10:15:30Z#11111111-2222-4333-8444-003144541804",
+    "source_ip": "203.0.113.25",
+    "ts": "2026-10-26T10:15:30Z",
+    "user_agent": "aws-cli/2.17.0 Python/3.12.4 Linux/6.1"
+  }
+]

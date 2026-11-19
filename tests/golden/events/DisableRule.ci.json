@@ -1,0 +1,24 @@
+[
+  {
+    "account": "111122223333",
+    "actor_arn": "arn:aws:sts::111122223333:assumed-role/clickops-ci/GitHubActions",
+    "actor_class": "ci",
+    "actor_name": "GitHubActions",
+    "day": "2026-10-26",
+    "event_id": "11111111-2222-4333-8444-002267523493",
+    "event_name": "DisableRule",
+    "event_source": "events.amazonaws.com",
+    "expires_at": 1800785730,
+    "outcome": "ignored",
+    "reason": "actor is ci",
+    "region": "ap-south-1",
+    "resource_id": "clickops-regional",
+    "resource_key": "event-rule#clickops-regional",
+    "resource_type": "event-rule",
+    "severity": "none",
+    "sk": "2026-10-26T10:15:30Z#11111111-2222-4333-8444-002267523493",
+    "source_ip": "203.0.113.25",
+    "ts": "2026-10-26T10:15:30Z",
+    "user_agent": "aws-cli/2.17.0 Python/3.12.4 Linux/6.1"
+  }
+]
