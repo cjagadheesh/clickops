@@ -79,7 +79,12 @@ def format_diff(diff: dict[str, Any]) -> str:
     return text
 
 
-def restore_command(targets: list[str]) -> str | None:
+TAMPER_RESTORE = "cd infra/detector && terraform apply"
+
+
+def restore_command(targets: list[str], outcome: Outcome | None = None) -> str | None:
+    if outcome is Outcome.TAMPER:
+        return TAMPER_RESTORE  # clickops' own resources: re-apply the detector root
     if not targets:
         return None
     return "terraform apply " + " ".join(f"-target={shlex.quote(t)}" for t in targets)
@@ -116,7 +121,7 @@ def render_slack(
                 "text": {"type": "mrkdwn", "text": f"```{format_diff(finding.diff)}```"},
             }
         )
-    if command := restore_command(targets or []):
+    if command := restore_command(targets or [], finding.outcome):
         blocks.append(
             {
                 "type": "section",
@@ -151,7 +156,7 @@ def render_email(
         lines.append(f"Why:      {reason}")
     if finding.diff:
         lines += ["", "Changes (- coded, + live):", format_diff(finding.diff)]
-    if command := restore_command(targets or []):
+    if command := restore_command(targets or [], finding.outcome):
         lines += ["", "To restore the coded state:", command]
     return subject, "\n".join(lines)
 
