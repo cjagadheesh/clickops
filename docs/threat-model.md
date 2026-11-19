@@ -78,6 +78,10 @@ could not read anything.
   RDS database or an IAM user is invisible.
 - **Delay.** CloudTrail delivers events in minutes; a fast change and revert can finish before an
   alert and leave no drift to compare (the event is still stored).
+- **Watching the watchers.** Two rules (`clickops-regional` and `clickops-tamper`) report calls on
+  each other, but nothing reports a change to the `us-east-1` forwarder, and an attacker who
+  disables every watcher in one step goes unreported. `clickops status` shows the state of all four
+  rules; run it after each apply and on a schedule.
 - **A person with `clickops-admin`** or an administrator in the account. They can stop the trail,
   disable the rules or change the Lambda. Tamper alerts (see `README.md`) report those changes
   unless the attacker also silences the alert path, and do not stop them.

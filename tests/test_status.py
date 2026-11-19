@@ -158,3 +158,10 @@ def test_readme_lists_the_tamper_outcome_and_the_status_command() -> None:
     assert "clickops status" in readme
     for outcome in ("managed-drift", "managed-delete", "shadow-create", "ignored"):
         assert f"`{outcome}`" in readme
+
+
+def test_threat_model_mentions_the_watcher_gap() -> None:
+    from pathlib import Path
+
+    text = (Path(__file__).resolve().parent.parent / "docs" / "threat-model.md").read_text()
+    assert "Watching the watchers" in text and "clickops status" in text
