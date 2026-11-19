@@ -149,3 +149,21 @@ def finding_item(finding: Any, reason: str = "", address: str | None = None) -> 
             "diff": json.dumps(finding.diff, sort_keys=True, default=str) if finding.diff else None,
         },
     )
+
+
+def last_event(table: Any, now: datetime | None = None, days: int = 7) -> dict[str, Any] | None:
+    """The most recently stored event within the last ``days`` days, read through the day index."""
+    end = (now or datetime.now(UTC)).astimezone(UTC)
+    for back in range(days + 1):
+        day = (end - timedelta(days=back)).strftime("%Y-%m-%d")
+        page = table.query(
+            IndexName=DAY_INDEX,
+            KeyConditionExpression="#d = :d",
+            ExpressionAttributeNames={"#d": DAY_ATTR},
+            ExpressionAttributeValues={":d": day},
+            ScanIndexForward=False,
+            Limit=1,
+        )
+        if page["Items"]:
+            return dict(page["Items"][0])
+    return None
