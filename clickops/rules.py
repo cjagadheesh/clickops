@@ -12,7 +12,7 @@ from typing import Any
 from clickops.compare.base import Comparison
 from clickops.config import Config
 from clickops.models import Actor, ActorClass, NormalizedEvent, Outcome, ResourceRef, Severity
-from clickops.resolvers.base import STATE_TYPES
+from clickops.resolvers.base import EVENT_RULE, LAMBDA_FUNCTION, STATE_TYPES, TRAIL
 from clickops.state import StateResource
 
 IGNORE_TAG = "clickops:ignore"
@@ -65,6 +65,38 @@ _WRITE_VERBS = (
     "disable",
     "reboot",
 )
+
+
+# clickops' own trail, rules and detector function: changes are tampering unless CI made them.
+OWN_TRAIL = "clickops-trail"
+OWN_RULE_PREFIX = "clickops-"
+OWN_FUNCTION = "clickops-detector"
+TAMPER_EVENTS = {
+    "StopLogging",
+    "DeleteTrail",
+    "UpdateTrail",
+    "PutEventSelectors",
+    "DisableRule",
+    "DeleteRule",
+    "RemoveTargets",
+    "DeleteFunction",
+    "UpdateFunctionCode",
+}
+
+
+def is_tamper(event: NormalizedEvent, ref: ResourceRef) -> bool:
+    """A watched call on clickops' own trail, event rules or detector function."""
+    if event.name not in TAMPER_EVENTS:
+        return False
+    if ref.type == TRAIL:
+        return ref.id == OWN_TRAIL
+    if ref.type == EVENT_RULE:
+        return ref.id.startswith(OWN_RULE_PREFIX)
+    return (
+        ref.type == LAMBDA_FUNCTION
+        and ref.id == OWN_FUNCTION
+        and event.name in {"DeleteFunction", "UpdateFunctionCode"}
+    )
 
 
 @dataclass(frozen=True)
@@ -325,6 +357,13 @@ def decide(
     config: Config | None = None,
 ) -> Decision:
     """Outcome and severity for one changed resource."""
+    if is_tamper(event, ref):
+        # Only clickops-ci may change these; ignore rules, tags and overrides cannot silence it.
+        if actor.actor_class is ActorClass.CI:
+            return Decision(Outcome.IGNORED, Severity.NONE, "actor is ci")
+        return Decision(
+            Outcome.TAMPER, Severity.CRITICAL, f"{event.name} on clickops' own {ref.type} {ref.id}"
+        )
     if actor.actor_class in SKIPPED_ACTORS:
         return Decision(Outcome.IGNORED, Severity.NONE, f"actor is {actor.actor_class.value}")
     if opted_out(event, state):
