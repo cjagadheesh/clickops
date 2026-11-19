@@ -40,6 +40,8 @@ EXPECTED = {
     "lambda/UpdateFunctionConfiguration20150331v2": [("lambda", "clickops-sandbox-hello", True)],
     "lambda/UpdateFunctionCode20150331v2": [("lambda", "clickops-sandbox-hello", True)],
     "lambda/AddPermission20150331v2": [("lambda", "clickops-sandbox-hello", True)],
+    "lambda/DeleteFunction20150331.tamper": [("lambda", "clickops-detector", False)],
+    "lambda/UpdateFunctionCode20150331v2.tamper": [("lambda", "clickops-detector", False)],
     "route53/ChangeResourceRecordSets": [
         ("route53-record", f"{ZONE}_app.clickops.internal_A", True),
         ("route53-record", f"{ZONE}_db.clickops.internal_A", True),

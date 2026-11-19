@@ -377,3 +377,19 @@ def test_post_json_sends_json_and_checks_status(monkeypatch: pytest.MonkeyPatch)
     seen["status"] = 500
     with pytest.raises(RuntimeError, match="500"):
         alerts.post_json(WEBHOOK, {})
+
+
+def test_tamper_alert_points_at_the_detector_root() -> None:
+    tamper = finding(
+        Outcome.TAMPER,
+        Severity.CRITICAL,
+        diff={},
+        fixture=("cloudtrail", "StopLogging"),
+        resource=ResourceRef(type="trail", id="clickops-trail"),
+    )
+    payload = alerts.render_slack(tamper, "StopLogging on clickops' own trail")
+    assert "tampered" in payload["blocks"][0]["text"]["text"]
+    assert "cd infra/detector && terraform apply" in texts(payload)
+    _, body = alerts.render_email(tamper, "x")
+    assert "cd infra/detector && terraform apply" in body
+    assert alerts.restore_command([], Outcome.MANAGED_DRIFT) is None

@@ -61,4 +61,7 @@ COVERAGE: dict[str, list[str]] = {
         "AddPermission",
     ],
     "route53": ["ChangeResourceRecordSets", "CreateHostedZone", "DeleteHostedZone"],
+    # clickops' own trail and rules: changes to them are tampering
+    "cloudtrail": ["StopLogging", "DeleteTrail", "UpdateTrail", "PutEventSelectors"],
+    "events": ["DisableRule", "DeleteRule", "RemoveTargets"],
 }

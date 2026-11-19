@@ -80,10 +80,11 @@ def test_lambda_env_names_match_the_code() -> None:
 
 def test_rules_target_the_detector_with_a_dlq_and_permission() -> None:
     tf = _read("rules.tf")
-    assert tf.count("dead_letter_config") == 2
-    assert tf.count('principal     = "events.amazonaws.com"') == 2
-    assert "patterns/regional.json" in tf
+    assert tf.count("dead_letter_config") == 3  # regional, global and tamper
+    assert tf.count('principal     = "events.amazonaws.com"') == 3
+    assert "patterns/regional.json" in tf and "patterns/tamper.json" in tf
     assert tf.count("patterns/global.json") == 2
+    assert "aws_cloudwatch_event_rule.tamper.arn" in tf  # may put dead letters on the queue
 
 
 def test_forwarding_rule_lives_in_us_east_1_and_targets_the_mumbai_bus() -> None:
@@ -179,7 +180,7 @@ def test_async_failures_are_retried_twice_then_dead_lettered() -> None:
     assert "maximum_retry_attempts       = 2" in tf
     assert "dead_letter_config" in tf
     rules = _read("rules.tf")
-    assert rules.count("maximum_retry_attempts       = 2") == 2 and "dead_letter_config" in rules
+    assert rules.count("maximum_retry_attempts       = 2") == 3 and "dead_letter_config" in rules
 
 
 def test_lambda_reads_both_state_files() -> None:

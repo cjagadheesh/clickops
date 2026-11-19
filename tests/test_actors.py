@@ -20,6 +20,7 @@ EXPECTED = {
     "service-linked": (ActorClass.AWS_SERVICE, "AutoScaling"),
     "cloudformation": (ActorClass.AWS_SERVICE, "cloudformation.amazonaws.com"),
     "self": (ActorClass.CLICKOPS_SELF, "clickops-detector"),
+    "tamper": (ActorClass.CLI_HUMAN, "asha@example.com"),
 }
 
 

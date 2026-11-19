@@ -288,3 +288,44 @@ def test_real_notifier_posts_once_for_repeat_events(aws, canned_drift) -> None: 
     second = handler.handler(raw, None)
     assert [first["findings"][0]["alert"], second["findings"][0]["alert"]] == ["sent", "suppressed"]
     assert len(posted) == 1
+
+
+# --- tamper ------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("service", "fixture", "resource"),
+    [
+        ("cloudtrail", "StopLogging", "trail#clickops-trail"),
+        ("cloudtrail", "DeleteTrail", "trail#clickops-trail"),
+        ("cloudtrail", "UpdateTrail", "trail#clickops-trail"),
+        ("cloudtrail", "PutEventSelectors", "trail#clickops-trail"),
+        ("events", "DisableRule", "event-rule#clickops-regional"),
+        ("events", "DeleteRule", "event-rule#clickops-global"),
+        ("events", "RemoveTargets", "event-rule#clickops-regional"),
+        ("lambda", "DeleteFunction20150331.tamper", "lambda#clickops-detector"),
+        ("lambda", "UpdateFunctionCode20150331v2.tamper", "lambda#clickops-detector"),
+    ],
+)
+def test_every_tamper_fixture_gives_a_critical_finding(aws, service, fixture, resource) -> None:  # type: ignore[no-untyped-def]
+    notifier = RecordingNotifier()
+    handler._notifier = notifier  # type: ignore[assignment]
+    boto3.client("s3", region_name="ap-south-1").delete_object(
+        Bucket="tfstate", Key="sandbox/terraform.tfstate"
+    )  # tampering does not need state, so this must not matter
+    handler.handler(load_fixture(service, fixture), None)
+    [item] = items(aws)
+    assert item["resource_key"] == resource
+    assert (item["outcome"], item["severity"]) == ("tamper", "critical")
+    assert item["actor_name"] == "asha@example.com"
+    [(finding, reason, _)] = notifier.calls
+    assert finding.outcome.value == "tamper" and resource.split("#")[1] in reason
+
+
+@pytest.mark.parametrize(
+    ("service", "fixture"), [("cloudtrail", "StopLogging.ci"), ("events", "DisableRule.ci")]
+)
+def test_the_same_calls_by_ci_are_ignored(aws, service, fixture) -> None:  # type: ignore[no-untyped-def]
+    handler.handler(load_fixture(service, fixture), None)
+    [item] = items(aws)
+    assert (item["outcome"], item["severity"], item["actor_class"]) == ("ignored", "none", "ci")

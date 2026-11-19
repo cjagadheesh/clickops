@@ -410,3 +410,73 @@ def test_config_overrides_do_not_apply_to_ignored_events() -> None:
     ci = Actor(actor_class=ActorClass.CI, display_name="ci")
     result = decide(event("ec2", "RevokeSecurityGroupIngress"), ci, SG_REF, state_of(), DRIFT, cfg)
     assert result.severity is Severity.NONE
+
+
+# --- tamper ------------------------------------------------------------------------------------
+
+TRAIL_REF = ResourceRef(type="trail", id="clickops-trail")
+RULE_REF = ResourceRef(type="event-rule", id="clickops-regional")
+DETECTOR_REF = ResourceRef(type="lambda", id="clickops-detector")
+CI = Actor(actor_class=ActorClass.CI, display_name="GitHubActions")
+
+
+@pytest.mark.parametrize(
+    ("service", "name", "ref"),
+    [
+        ("cloudtrail", "StopLogging", TRAIL_REF),
+        ("cloudtrail", "DeleteTrail", TRAIL_REF),
+        ("cloudtrail", "UpdateTrail", TRAIL_REF),
+        ("cloudtrail", "PutEventSelectors", TRAIL_REF),
+        ("events", "DisableRule", RULE_REF),
+        ("events", "DeleteRule", ResourceRef(type="event-rule", id="clickops-global")),
+        ("events", "RemoveTargets", RULE_REF),
+        ("lambda", "DeleteFunction20150331.tamper", DETECTOR_REF),
+        ("lambda", "UpdateFunctionCode20150331v2.tamper", DETECTOR_REF),
+    ],
+)
+def test_changes_to_clickops_own_resources_are_critical_tampering(
+    service: str, name: str, ref: ResourceRef
+) -> None:
+    result = decide(event(service, name), HUMAN, ref, None, None)
+    assert (result.outcome, result.severity) == (Outcome.TAMPER, Severity.CRITICAL)
+    assert ref.id in result.reason
+
+
+@pytest.mark.parametrize(
+    "actor_class", [ActorClass.CONSOLE_HUMAN, ActorClass.CLICKOPS_SELF, ActorClass.AWS_SERVICE]
+)
+def test_anyone_other_than_ci_is_a_tamperer(actor_class: ActorClass) -> None:
+    actor = Actor(actor_class=actor_class, display_name="x")
+    result = decide(event("cloudtrail", "StopLogging"), actor, TRAIL_REF, None, None)
+    assert result.outcome is Outcome.TAMPER
+
+
+def test_clickops_ci_may_change_its_own_resources() -> None:
+    result = decide(event("cloudtrail", "StopLogging"), CI, TRAIL_REF, None, None)
+    assert (result.outcome, result.severity) == (Outcome.IGNORED, Severity.NONE)
+
+
+def test_tamper_cannot_be_silenced_by_tags_or_config() -> None:
+    cfg = config(
+        ignore=[IgnoreRule(resource_type="aws_cloudtrail", reason="noisy")],
+        severity_overrides=[SeverityOverride(outcome=Outcome.TAMPER, severity=Severity.INFO)],
+    )
+    state = state_of("aws_cloudtrail", "clickops-trail", tags={"clickops:ignore": "true"})
+    result = decide(event("cloudtrail", "StopLogging"), HUMAN, TRAIL_REF, state, None, cfg)
+    assert (result.outcome, result.severity) == (Outcome.TAMPER, Severity.CRITICAL)
+
+
+def test_other_trails_rules_and_functions_are_not_tampering() -> None:
+    other_trail = ResourceRef(type="trail", id="someone-elses-trail")
+    other_rule = ResourceRef(type="event-rule", id="app-nightly")
+    other_fn = ResourceRef(type="lambda", id="clickops-sandbox-hello")
+    for name, ref in (("StopLogging", other_trail), ("DisableRule", other_rule)):
+        ev = event("cloudtrail" if "Logging" in name else "events", name)
+        assert decide(ev, HUMAN, ref, None, None).outcome is Outcome.IGNORED
+    ev = event("lambda", "DeleteFunction20150331")
+    assert decide(ev, HUMAN, other_fn, None, None).outcome is not Outcome.TAMPER
+
+
+def test_other_calls_on_the_detector_function_are_not_tampering_events() -> None:
+    ev = event("lambda", "UpdateFunctionConfiguration20150331v2")
+    assert decide(ev, HUMAN, DETECTOR_REF, None, None).outcome is Outcome.IGNORED

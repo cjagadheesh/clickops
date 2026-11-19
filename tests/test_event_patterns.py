@@ -18,6 +18,7 @@ RULES = {
     "regional": ("ap-south-1", "regional"),
     "forward-us-east-1": ("us-east-1", "global"),
     "global-ap-south-1": ("ap-south-1", "global"),
+    "tamper": ("ap-south-1", "tamper"),
 }
 
 
@@ -42,6 +43,9 @@ def test_each_fixture_matches_exactly_the_right_rules(path: Path) -> None:
     if service in ("ec2", "s3", "lambda"):
         assert matching_rules(event, event["region"]) == {"regional"}
         assert event["region"] == "ap-south-1"
+    elif service in ("cloudtrail", "events"):
+        assert matching_rules(event, event["region"]) == {"tamper"}
+        assert event["region"] == "ap-south-1"
     else:
         # IAM and Route 53 arrive in us-east-1, are forwarded, then matched in ap-south-1.
         assert event["region"] == "us-east-1"
@@ -59,8 +63,15 @@ def test_every_fixture_reaches_a_detector_rule() -> None:
 def test_every_watched_event_name_is_in_the_patterns() -> None:
     regional = _pattern("regional")["detail"]["eventName"]
     glob = _pattern("global")["detail"]["eventName"]
+    tamper = _pattern("tamper")["detail"]["eventName"]
     for service, names in COVERAGE.items():
-        pattern_names = regional if service in ("ec2", "s3", "lambda") else glob
+        pattern_names = {
+            "ec2": regional,
+            "s3": regional,
+            "lambda": regional,
+            "cloudtrail": tamper,
+            "events": tamper,
+        }.get(service, glob)
         for name in names:
             wanted: Any = {"prefix": name} if service == "lambda" else name
             assert wanted in pattern_names, f"{name} missing from the {service} pattern"
@@ -93,3 +104,17 @@ def test_matcher_semantics() -> None:
     assert matches({"a": ["x"]}, {"a": ["w", "x"]})
     assert not matches({"a": ["x"]}, {})
     assert not matches({"a": {"b": ["x"]}}, {"a": "x"})
+
+
+def test_tamper_events_are_watched_in_the_home_region_only() -> None:
+    pattern = _pattern("tamper")
+    assert pattern["source"] == ["aws.cloudtrail", "aws.events"]
+    assert pattern["region"] == ["ap-south-1"]
+    assert _pattern("global")["region"] == ["us-east-1"]  # so the two never match the same event
+
+
+def test_a_tamper_call_in_us_east_1_is_not_matched_by_the_tamper_rule() -> None:
+    path = next(p for p in fixture_paths() if p.stem == "StopLogging")
+    event = json.loads(path.read_text())
+    event["region"] = "us-east-1"
+    assert not matches(_pattern("tamper"), event)
