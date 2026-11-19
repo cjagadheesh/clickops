@@ -9,6 +9,7 @@ cd "$(dirname "$0")/.."
 REGION=${AWS_REGION:-ap-south-1}
 REGIONAL=$(python3 -c "import json;print(json.dumps(json.load(open('infra/detector/patterns/regional.json'))))")
 GLOBAL=$(python3 -c "import json;print(json.dumps(json.load(open('infra/detector/patterns/global.json'))))")
+TAMPER=$(python3 -c "import json;print(json.dumps(json.load(open('infra/detector/patterns/tamper.json'))))")
 failures=0
 
 check() { # fixture, pattern name, pattern, expected
@@ -25,8 +26,9 @@ check() { # fixture, pattern name, pattern, expected
 for file in tests/fixtures/cloudtrail/*/*.json; do
   service=$(basename "$(dirname "$file")")
   case "$service" in
-    ec2|s3|lambda) check "$file" regional "$REGIONAL" True;  check "$file" global "$GLOBAL" False ;;
-    iam|route53)   check "$file" regional "$REGIONAL" False; check "$file" global "$GLOBAL" True ;;
+    ec2|s3|lambda) check "$file" regional "$REGIONAL" True;  check "$file" global "$GLOBAL" False; check "$file" tamper "$TAMPER" False ;;
+    iam|route53)   check "$file" regional "$REGIONAL" False; check "$file" global "$GLOBAL" True;  check "$file" tamper "$TAMPER" False ;;
+    cloudtrail|events) check "$file" regional "$REGIONAL" False; check "$file" global "$GLOBAL" False; check "$file" tamper "$TAMPER" True ;;
   esac
 done
 
