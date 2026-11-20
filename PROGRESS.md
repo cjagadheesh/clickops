@@ -557,3 +557,21 @@
 **Needs the human (the day's "Done when" is not met until then)**
 - Apply `infra/detector` (new rule and pattern changes), then run `AWS_PROFILE=clickops-admin uv run clickops status` and confirm every row says `ok`. Re-run `scripts/test_event_patterns.sh` to confirm all fixtures match the intended rules in EventBridge itself.
 - To see a live tamper alert, with approval, run `aws events disable-rule --name clickops-tamper` and then `aws events enable-rule --name clickops-tamper`; the disable should alert as `tamper`.
+
+## Day 26: scripted end-to-end test
+
+**Built**
+- `scripts/e2e.sh` (needs `CONFIRM=yes`): runs the six scenarios with the admin profile and, for each, waits up to 10 minutes (`E2E_TIMEOUT`) for the stored finding and checks its outcome and severity: SSH from `0.0.0.0/0` on `admin` (critical `managed-drift`), `AmazonS3FullAccess` attached to the sandbox role (warning), Block Public Access off on the sandbox bucket (critical), Lambda timeout changed (warning), a Route 53 record value changed (warning), and a new bucket made by the CLI (info `shadow-create`). It then reverts and requires `terraform plan` to show no changes.
+- `scripts/wait_for_finding.py` gained `--label` and `--append`, so each scenario's expected and actual outcome, severity, actor and measured delay are collected; `scripts/e2e_report.py` renders them into `docs/e2e-results.md` (table, pass count, fastest, slowest and mean delay, revert state). `docs/e2e-results.md` currently says it has not been run.
+- Interrupted runs still revert (an `EXIT` trap).
+- Tests: the scenarios' expected severities and event names, the timeout, the revert steps and trap, report rendering for passes, failures and timeouts, and the exit codes.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 833 passed.
+
+**Deviations (a correction to the plan)**
+- The plan says to revert with one `terraform apply`. That does not undo scenarios 1 and 2: Terraform does not remove a security group rule or a role policy attachment that is not in its configuration (the group has no inline rules and the attachment is a separate resource). `scripts/e2e.sh` therefore undoes those two with the inverse CLI calls, scenarios 3 to 5 with `terraform apply` (it asks for approval; `TF_APPLY_ARGS=-auto-approve` skips that), deletes the scenario 6 bucket, and finishes with a `terraform plan -detailed-exitcode` that must be clean. `scripts/e2e_alerts.sh` (the earlier two-scenario check) had the same wrong revert instruction and now offers `REVERT=yes` with the inverse calls. If you already ran it and applied Terraform to "revert", check the admin group and the role by hand: `aws ec2 describe-security-groups` and `aws iam list-attached-role-policies --role-name clickops-sandbox-app`.
+- The live run was not done: there are no AWS credentials here.
+
+**Needs the human (the day's "Done when" is not met until then)**
+- With everything from Days 3 to 25 in place (applies, repository variables, webhook, detector applied and a fresh Lambda zip), run `CONFIRM=yes AWS_PROFILE=clickops-admin scripts/e2e.sh`, approve the Terraform apply at the end, and commit the `docs/e2e-results.md` it writes. All six scenarios must pass in one run. Route 53 findings arrive through the `us-east-1` forwarding rule, so expect the longest delay there.
