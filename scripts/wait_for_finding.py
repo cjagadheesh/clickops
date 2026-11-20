@@ -17,6 +17,7 @@ import sys
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import boto3
@@ -69,6 +70,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--expect-outcome")
     parser.add_argument("--expect-severity")
     parser.add_argument("--timeout", type=float, default=900)
+    parser.add_argument("--label", default="", help="name of the scenario, kept in the output")
+    parser.add_argument("--append", type=Path, help="also append the JSON result to this file")
     parser.add_argument("--region", default="ap-south-1")
     args = parser.parse_args(argv)
 
@@ -77,22 +80,33 @@ def main(argv: list[str] | None = None) -> int:
     item, waited = wait(
         table, since=since, resource=args.resource, event=args.event, timeout=args.timeout
     )
+    expected = {"expect_outcome": args.expect_outcome, "expect_severity": args.expect_severity}
     if item is None:
-        print(json.dumps({"found": False, "waited_seconds": round(waited)}))
-        return 1
-    problems = check(item, args.expect_outcome, args.expect_severity)
-    print(
-        json.dumps(
-            {
-                "found": True,
-                "delay_seconds": round(datetime.now(UTC).timestamp() - since.timestamp()),
-                "actor": f"{item.get('actor_name')} ({item.get('actor_class')})",
-                "outcome": item.get("outcome"),
-                "severity": item.get("severity"),
-                "problems": problems,
-            }
-        )
-    )
+        problems = ["no finding stored before the timeout"]
+        result: dict[str, Any] = {
+            "label": args.label,
+            "found": False,
+            "waited_seconds": round(waited),
+            "problems": problems,
+            **expected,
+        }
+    else:
+        problems = check(item, args.expect_outcome, args.expect_severity)
+        result = {
+            "label": args.label,
+            "found": True,
+            "delay_seconds": round(datetime.now(UTC).timestamp() - since.timestamp()),
+            "actor": f"{item.get('actor_name')} ({item.get('actor_class')})",
+            "outcome": item.get("outcome"),
+            "severity": item.get("severity"),
+            "problems": problems,
+            **expected,
+        }
+    line = json.dumps(result)
+    print(line)
+    if args.append:
+        with args.append.open("a") as fh:
+            fh.write(line + "\n")
     return 1 if problems else 0
 
 

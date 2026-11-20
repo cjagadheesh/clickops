@@ -139,3 +139,53 @@ def test_main_prints_the_delay_and_exit_codes(table, capsys: pytest.CaptureFixtu
         "0",
     ]
     assert module.main(missing) == 1
+
+
+def test_label_and_append_write_a_result_line(table, tmp_path, capsys) -> None:  # type: ignore[no-untyped-def]
+    module = load()
+    put(table, datetime.now(UTC) - timedelta(seconds=10))
+    results = tmp_path / "results.jsonl"
+    argv = [
+        "--resource",
+        "sg#sg-1",
+        "--event",
+        "AuthorizeSecurityGroupIngress",
+        "--since",
+        SINCE.isoformat(),
+        "--label",
+        "SSH from the world",
+        "--expect-severity",
+        "critical",
+        "--append",
+        str(results),
+    ]
+    assert module.main(argv) == 0
+    capsys.readouterr()
+    line = json.loads(results.read_text())
+    assert line["label"] == "SSH from the world" and line["found"] is True
+    assert line["expect_severity"] == "critical" and line["problems"] == []
+
+
+def test_a_timeout_is_recorded_as_a_failure(table, tmp_path, capsys) -> None:  # type: ignore[no-untyped-def]
+    module = load()
+    results = tmp_path / "results.jsonl"
+    argv = [
+        "--resource",
+        "sg#nope",
+        "--event",
+        "X",
+        "--since",
+        SINCE.isoformat(),
+        "--timeout",
+        "0",
+        "--label",
+        "never",
+        "--append",
+        str(results),
+        "--expect-severity",
+        "critical",
+    ]
+    assert module.main(argv) == 1
+    capsys.readouterr()
+    line = json.loads(results.read_text())
+    assert line["found"] is False and line["label"] == "never"
