@@ -4,10 +4,11 @@
 #   1. allow SSH from 0.0.0.0/0 on the admin group  -> critical managed-drift, Slack and email
 #   2. attach AmazonS3FullAccess to the sandbox role -> warning managed-drift, Slack
 #
-# Needs approval: it changes real resources. Afterwards revert with `terraform apply` in
-# infra/sandbox (this script does not apply anything). Check #clickops-alerts and your email.
+# Needs approval: it changes real resources. Both changes are NOT reverted by `terraform apply`
+# (Terraform does not remove a rule or an attachment it does not manage), so run it with REVERT=yes
+# to undo them with the inverse CLI calls when it finishes. Check #clickops-alerts and your email.
 #
-#   CONFIRM=yes AWS_PROFILE=clickops-admin scripts/e2e_alerts.sh
+#   CONFIRM=yes REVERT=yes AWS_PROFILE=clickops-admin scripts/e2e_alerts.sh
 set -euo pipefail
 
 if [ "${CONFIRM:-}" != "yes" ]; then
@@ -45,7 +46,16 @@ uv run python scripts/wait_for_finding.py --resource "iam-role#$ROLE" \
   --expect-outcome managed-drift --expect-severity warning || failures=$((failures + 1))
 
 echo
-echo "Now revert both with: (cd infra/sandbox && terraform apply)"
+if [ "${REVERT:-}" = "yes" ]; then
+  aws ec2 revoke-security-group-ingress --region $REGION --group-id "$ADMIN_SG" \
+    --protocol tcp --port 22 --cidr 0.0.0.0/0 > /dev/null
+  aws iam detach-role-policy --role-name $ROLE --policy-arn $POLICY
+  echo "Reverted both changes. The sandbox should match its coded state again."
+else
+  echo "Not reverted. Undo them with:"
+  echo "  aws ec2 revoke-security-group-ingress --region $REGION --group-id $ADMIN_SG --protocol tcp --port 22 --cidr 0.0.0.0/0"
+  echo "  aws iam detach-role-policy --role-name $ROLE --policy-arn $POLICY"
+fi
 echo "Check that a critical message and email arrived for step 1 and a warning for step 2,"
 echo "then write the delays above into PROGRESS.md."
 exit $failures
