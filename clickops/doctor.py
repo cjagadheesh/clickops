@@ -70,7 +70,10 @@ def check_config(path: Path) -> tuple[CheckResult, Config | None]:
         cfg = load_config(path)
     except ConfigError as exc:
         return CheckResult(
-            name, False, str(exc), "Copy clickops.example.yaml to clickops.yaml and fix it."
+            name,
+            False,
+            str(exc),
+            "Copy clickops.example.yaml from the repository to clickops.yaml, then fix it.",
         ), None
     return CheckResult(name, True, str(path)), cfg
 
