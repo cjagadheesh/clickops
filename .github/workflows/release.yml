@@ -1,0 +1,43 @@
+name: release
+
+# Push a tag such as v0.1.0 (or v0.1.0-rc1 for a pre-release) to publish a GitHub release with the
+# wheel and the Lambda package. The tag must match the version in pyproject.toml and CHANGELOG.md
+# must have a section for it.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv python install 3.12
+      - run: uv sync --frozen
+      - name: make check
+        run: make check
+      - name: release notes from CHANGELOG.md
+        run: |
+          uv run python scripts/release_notes.py --tag "$GITHUB_REF_NAME" > release-notes.md
+          echo "PRERELEASE=$(uv run python scripts/release_notes.py --tag "$GITHUB_REF_NAME" --prerelease-flag)" >> "$GITHUB_ENV"
+      - name: build the wheel and the Lambda package
+        run: |
+          uv build --wheel
+          scripts/build_lambda.sh
+          VERSION="${GITHUB_REF_NAME#v}"
+          mv dist/clickops-detector.zip "dist/clickops-detector-${VERSION}.zip"
+          (cd dist && sha256sum ./*.whl ./*.zip > SHA256SUMS)
+      - name: smoke test the wheel in a clean environment
+        run: scripts/smoke_install.sh dist/*.whl
+      - name: publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FLAGS=""
+          if [ "$PRERELEASE" = "true" ]; then FLAGS="--prerelease"; fi
+          gh release create "$GITHUB_REF_NAME" dist/*.whl dist/clickops-detector-*.zip dist/SHA256SUMS \
+            --title "clickops ${GITHUB_REF_NAME#v}" --notes-file release-notes.md $FLAGS
