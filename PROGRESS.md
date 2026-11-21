@@ -575,3 +575,25 @@
 
 **Needs the human (the day's "Done when" is not met until then)**
 - With everything from Days 3 to 25 in place (applies, repository variables, webhook, detector applied and a fresh Lambda zip), run `CONFIRM=yes AWS_PROFILE=clickops-admin scripts/e2e.sh`, approve the Terraform apply at the end, and commit the `docs/e2e-results.md` it writes. All six scenarios must pass in one run. Route 53 findings arrive through the `us-east-1` forwarding rule, so expect the longest delay there.
+
+## Day 27: packaging and release pipeline
+
+**Built**
+- Version `0.1.0` in `pyproject.toml` (the `clickops` console script was already declared), with `clickops --version` and `clickops.__version__` read from the installed package metadata. A test keeps `pyproject.toml`, the package and `CHANGELOG.md` in step.
+- `CHANGELOG.md` with the 0.1.0 section: features, the six resource types, outcomes and severity, alerts, tamper detection, the CLI commands, the three Terraform roots, CI and release automation, and known limitations. The heading says "Unreleased" until the owner tags it (Day 30 sets the date).
+- `.github/workflows/release.yml`: on a `v*` tag it runs `make check`, extracts the release notes from `CHANGELOG.md` (`scripts/release_notes.py`, which also checks that the tag matches the project version and that a changelog section exists), builds the wheel and the reproducible Lambda package (renamed with the version), writes `SHA256SUMS`, smoke-tests the wheel, and creates the GitHub release with all three files. A tag with a suffix such as `v0.1.0-rc1` is published as a pre-release with notes taken from the `0.1.0` section.
+- `scripts/smoke_install.sh`: installs a wheel into a clean virtual environment (with `uv`, so it gets Python 3.12 whatever the system python is), runs `clickops --version` and `clickops doctor`, and requires doctor to produce its report and exit 1 when there are no credentials or config.
+- The doctor fix hint now says the example config is in the repository (pip and pipx installs do not ship it).
+- Tests: the console script and wheel settings, version consistency, tag parsing and rejection of malformed tags, the notes for releases and pre-releases, mismatched versions, the workflow's order of steps, its attached files and permissions, and the smoke script.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 854 passed.
+- Done here for real: `uv build --wheel` produced `clickops-0.1.0-py3-none-any.whl`, and `scripts/smoke_install.sh` installed it into a fresh Python 3.12 environment where `clickops --version` printed `clickops 0.1.0` and `clickops doctor` printed its table of failing checks (no credentials, no Terraform, no config) and exited 1, as intended.
+
+**Deviations**
+- The wheel for `v0.1.0-rc1` is still named `0.1.0` (the version in `pyproject.toml`); only the GitHub release is marked a pre-release.
+- Tags and releases are created on GitHub, which this environment cannot do, so the "Done when" is not met yet.
+
+**Needs the human**
+- Push a pre-release tag from `main`: `git tag v0.1.0-rc1 && git push origin v0.1.0-rc1`. The release workflow should finish green and attach the wheel, `clickops-detector-0.1.0.zip` and `SHA256SUMS`.
+- Check from a clean machine: `pipx install https://github.com/<owner>/clickops/releases/download/v0.1.0-rc1/clickops-0.1.0-py3-none-any.whl` (or `pipx install git+https://github.com/<owner>/clickops`), then `clickops doctor`. Delete the rc release and tag if you do not want it kept.
