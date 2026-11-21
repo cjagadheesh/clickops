@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from clickops import store
+from clickops import __version__, store
 from clickops.config import ConfigError, load_config
 from clickops.doctor import run_checks
 from clickops.importer import ImporterError, generate_config, write_imports
@@ -44,8 +44,19 @@ def parse_duration(text: str) -> timedelta:
     }[unit]
 
 
+def _show_version(show: bool) -> None:
+    if show:
+        typer.echo(f"clickops {__version__}")
+        raise typer.Exit()
+
+
 @app.callback()
-def main() -> None:
+def main(
+    version: Annotated[
+        bool,
+        typer.Option("--version", callback=_show_version, is_eager=True, help="Show the version."),
+    ] = False,
+) -> None:
     """clickops command line."""
 
 
