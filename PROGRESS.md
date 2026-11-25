@@ -597,3 +597,23 @@
 **Needs the human**
 - Push a pre-release tag from `main`: `git tag v0.1.0-rc1 && git push origin v0.1.0-rc1`. The release workflow should finish green and attach the wheel, `clickops-detector-0.1.0.zip` and `SHA256SUMS`.
 - Check from a clean machine: `pipx install https://github.com/<owner>/clickops/releases/download/v0.1.0-rc1/clickops-0.1.0-py3-none-any.whl` (or `pipx install git+https://github.com/<owner>/clickops`), then `clickops doctor`. Delete the rc release and tag if you do not want it kept.
+
+## Day 28: README and demo
+
+**Built**
+- `README.md` rewritten in the planned order: the problem in three sentences, the demo GIF, what it detects (coverage table checked against the comparators, then the outcomes table), a Mermaid architecture diagram, a five-step quickstart (clone and install, bootstrap, sandbox, build and apply the detector with the Slack webhook, configure and check), the commands table, cost (from `docs/cost.md`), the security model (linking `docs/threat-model.md`), the limitations stated plainly, and how clickops differs from a scheduled `terraform plan`.
+- `demo/demo.tape` (VHS): `clickops scan`, `clickops import` on a scratch bucket, `clickops events`. `demo/prepare.sh` creates the tagged empty bucket and `demo/cleanup.sh` deletes it (it refuses names that do not start with `clickops-demo-`) and the `imports/` folder. `demo/README.md` explains how to re-record.
+- `tests/test_readme.py`: section order, relative links, five numbered quickstart steps, scripts and example files named in the quickstart exist, limitations present, the tape runs the commands in order.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 862 passed.
+
+**Deviations**
+- `demo/demo.gif` is not committed (no VHS, AWS or Terraform here), so the README image link is broken until the owner records it. The link test allows exactly that one missing file.
+- The README recommends the USD 5 budget as a guardrail; no Terraform in this repo creates it.
+- The quickstart has not been followed from a fresh clone by anyone (Day 29 does that), and no Terraform command in it has ever been run.
+
+**Needs the human**
+- Install VHS and run `AWS_PROFILE=clickops-admin vhs demo/demo.tape` once the detector is applied, then commit `demo/demo.gif`.
+- Optional: make one console change and add a screenshot of the Slack alert to the README.
+- Replace `<owner>` in the clone URL if wanted.
