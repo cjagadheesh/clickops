@@ -1,4 +1,4 @@
-.PHONY: fmt lint typecheck test check
+.PHONY: fmt lint typecheck test check destroy
 
 fmt:
 	uv run ruff format .
@@ -15,3 +15,7 @@ test:
 	uv run pytest
 
 check: lint typecheck test
+
+# Tears clickops down in the safe order. Prompts for confirmation; DRY_RUN=1 only prints the plan.
+destroy:
+	./scripts/destroy.sh
