@@ -33,9 +33,23 @@ def test_valid_config(tmp_path: Path) -> None:
     assert cfg.severity_overrides[0].severity is Severity.WARNING
 
 
-def test_example_config_is_valid() -> None:
-    cfg = load_config(ROOT / "clickops.example.yaml")
-    assert len(cfg.state_locations) == 2
+def test_example_config_is_valid_once_placeholders_are_replaced(tmp_path: Path) -> None:
+    text = (ROOT / "clickops.example.yaml").read_text()
+    text = text.replace("<account-id>", "123456789012").replace("<trusted-role>", "ci")
+    filled = tmp_path / "clickops.yaml"
+    filled.write_text(text)
+    assert len(load_config(filled).state_locations) == 2
+
+
+def test_example_config_placeholders_are_reported() -> None:
+    with pytest.raises(ConfigError, match=r"<account-id>.*<trusted-role>|<trusted-role>"):
+        load_config(ROOT / "clickops.example.yaml")
+
+
+def test_placeholder_in_a_comment_is_fine(tmp_path: Path) -> None:
+    path = tmp_path / "c.yaml"
+    path.write_text(VALID + "# replace <account-id> later\n")
+    assert load_config(path).region == "ap-south-1"
 
 
 @pytest.mark.parametrize(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
@@ -17,6 +18,7 @@ from pydantic import (
 from clickops.models import Outcome, Severity
 
 REGION_PATTERN = r"^[a-z]{2}(-[a-z]+)+-\d$"
+PLACEHOLDER = re.compile(r"<[a-z][a-z0-9-]*>")
 
 
 class ConfigError(Exception):
@@ -101,6 +103,13 @@ def load_config(path: Path) -> Config:
     if not isinstance(raw, dict):
         raise ConfigError(f"{path} must contain a YAML mapping")
     try:
-        return Config.model_validate(raw)
+        config = Config.model_validate(raw)
     except ValidationError as exc:
         raise ConfigError(f"{path} is invalid:\n{exc}") from exc
+    code = re.sub(r"(^|\s)#.*", "", path.read_text(), flags=re.MULTILINE)
+    placeholders = sorted(set(PLACEHOLDER.findall(code)))
+    if placeholders:
+        raise ConfigError(
+            f"{path} still has example placeholders to replace: {', '.join(placeholders)}"
+        )
+    return config
