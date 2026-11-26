@@ -617,3 +617,32 @@
 - Install VHS and run `AWS_PROFILE=clickops-admin vhs demo/demo.tape` once the detector is applied, then commit `demo/demo.gif`.
 - Optional: make one console change and add a screenshot of the Slack alert to the README.
 - Replace `<owner>` in the clone URL if wanted.
+
+## Day 29: fresh-clone verification and teardown
+
+**Fresh-clone run (done here, as far as it can go without Terraform or AWS)**
+- Cloned the repository into a new directory and followed the README quickstart: `uv sync`, `clickops --version` and `scripts/build_lambda.sh` (zip built, same hash as before) all worked, and every `*.example` file the README names copied cleanly.
+- Not done: `terraform plan` for the three roots. There is no Terraform binary here, and no AWS credentials.
+- Gaps found and fixed:
+  - `clickops doctor` on the copied example config produced a raw botocore "Invalid bucket name" error. The config loader now rejects any `<placeholder>` left in a value, with a message that names them (comments are ignored). The shipped example test now fills the placeholders first.
+  - `clickops.yaml` is copied into the Lambda zip, but the quickstart created it after the build. The quickstart now has a "Configure" step before "Build and apply the detector" (still five steps), says where the state bucket name comes from (the `state_bucket` bootstrap output), and that trusted CI roles can also go in `trusted_role_arns` and that a later config change needs a rebuild and apply.
+  - `infra/detector/README.md` still said the Lambda, rules and alarms came "later" and did not mention building the zip first. Fixed.
+  - Teardown would have failed: no clickops bucket sets `force_destroy`, so Terraform cannot delete a bucket that holds objects (the trail logs, the versioned state bucket, the sandbox bucket).
+
+**Built**
+- `make destroy` (`scripts/destroy.sh`): prints what it will remove, asks you to type `destroy <account-id>`, then runs sandbox, detector (then deletes the SSM webhook parameter) and bootstrap in that order. Each bucket is emptied right before its own destroy with `scripts/empty_bucket.py` (all versions and delete markers, only `clickops-*` names), and Terraform still prompts per root unless `TF_DESTROY_ARGS=-auto-approve`. `DRY_RUN=1` prints the plan only. It checks the local `backend.hcl` and tfvars files first, builds the Lambda zip if missing (Terraform reads it while planning a destroy), and stops at the first failed destroy.
+- `scripts/cost_report.py`: one Cost Explorer call for last month's cost of everything tagged `project=clickops`, by service (USD 0.01 per call).
+- README "Teardown" section; `docs/cost.md` "Checking the real figure" section.
+- Tests: the config placeholder check, `empty_bucket.py` against moto (versions, delete markers, missing bucket, refusal of other names), `destroy.sh` with stand-in aws, terraform and uv commands (dry run, wrong or missing confirmation, missing files, exact call order, init arguments, zip rebuild, argument pass-through, missing SSM parameter, a failed destroy stopping later roots), the cost report's month maths and summary.
+
+**Tests**
+- `make check`: ruff clean, mypy strict clean, pytest 883 passed before the last doc commits (docs only after that).
+
+**Deviations**
+- `make destroy` was not run, as the plan says. The monthly cost in `docs/cost.md` is still an estimate: the Cost Explorer call needs credentials and costs a cent.
+- The "done when" (a fresh-clone run needing no steps outside the README) is only met for the parts that run without AWS and Terraform.
+
+**Needs the human**
+- On a laptop with Terraform: clone fresh, follow the README, and run `terraform plan` (no apply) in `infra/bootstrap`, `infra/sandbox` and `infra/detector`. Terraform `fmt`, `validate` and `plan` have never been run on these files, so expect small fixes; tell me what breaks.
+- After a full month: activate the `project` cost allocation tag in Billing, run `scripts/cost_report.py`, and put the figure in `docs/cost.md`.
+- Run `DRY_RUN=1 make destroy` to read the plan. Only run the real one when you want everything gone.
