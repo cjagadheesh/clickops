@@ -21,6 +21,16 @@ Sandbox total: about USD 1.25 per month. There is no NAT gateway, load balancer 
 CloudTrail's first copy of management events is free. DynamoDB on-demand, Lambda, SNS and EventBridge stay
 inside the free tier or cost cents at this volume. Estimate to be confirmed after Day 13.
 
+## Checking the real figure
+
+Run `AWS_PROFILE=clickops-admin scripts/cost_report.py` after the stack has run a full month. It makes one
+Cost Explorer call (AWS charges USD 0.01 per request) for last month's cost of everything tagged
+`project=clickops`, grouped by service. The `project` tag must be activated as a cost allocation tag in the
+Billing console first (it takes up to 24 hours to apply), or the report is empty. Replace the estimates
+above with the result.
+
+Measured cost: not yet checked (no AWS credentials where this was written).
+
 ## Guardrail
 
 A USD 5 monthly AWS Budget emails at 50% and 100%.
