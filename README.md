@@ -152,6 +152,15 @@ Afterwards, `clickops scan` lists shadow resources, `clickops import` drafts Ter
 | `clickops import` | writes Terraform `import` blocks for shadow resources and drafts their config |
 | `clickops status` | checks that the trail is logging, the rules are enabled, the dead-letter queue is empty and no alarm is open |
 
+## Teardown
+
+`make destroy` removes everything in the safe order: sandbox, then detector, then bootstrap (the state
+bucket and CI role must outlive the roots that keep their state in them). It prints the plan, asks you to
+type `destroy <account-id>`, empties each bucket (none set `force_destroy`), and Terraform still asks you to
+approve each destroy. Use `DRY_RUN=1 make destroy` to see the plan without changing anything. It does not
+remove an AWS Budget you made by hand or the GitHub repository variables. It needs the same local files as
+the quickstart (`backend.hcl`, the `*.auto.tfvars` files).
+
 ## Cost
 
 About USD 1.25 per month for the sandbox (a private hosted zone and an 8 GB volume under a stopped

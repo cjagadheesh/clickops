@@ -75,3 +75,9 @@ def test_demo_tape_runs_the_planned_commands() -> None:
     )
     for helper in ("prepare.sh", "cleanup.sh"):
         assert (ROOT / "demo" / helper).is_file()
+
+
+def test_teardown_is_documented_and_target_exists() -> None:
+    teardown = README.split("## Teardown")[1].split("\n## ")[0]
+    assert "make destroy" in teardown and "DRY_RUN=1" in teardown
+    assert "destroy:" in (ROOT / "Makefile").read_text()
