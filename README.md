@@ -108,32 +108,36 @@ Every `terraform apply` creates real resources, so read each plan first.
    cd ../..
    ```
 
-4. **Build and apply the detector**, then store the Slack webhook (the script prompts for it without
-   echoing, so it never enters your shell history) and confirm the SNS email. Details in
-   [`infra/detector/README.md`](infra/detector/README.md).
+4. **Configure.** The detector zip includes `clickops.yaml` (ignore rules and severity overrides), so create it
+   before building. Replace every `<...>` placeholder: the bucket is the `state_bucket` output of the bootstrap
+   root (`clickops-tfstate-<account-id>`), and `clickops` refuses a file that still has placeholders. Delete the
+   example `trusted_roles` and `ignore` entries if you have none.
+
+   ```
+   cp clickops.example.yaml clickops.yaml
+   $EDITOR clickops.yaml
+   ```
+
+5. **Build and apply the detector**, store the Slack webhook (the script prompts for it without echoing, so it
+   never enters your shell history), confirm the SNS email, and check. Role ARNs that should count as CI
+   also go in `trusted_role_arns` in `detector.auto.tfvars`. After you change `clickops.yaml` later, run the
+   build and the apply again. Details in [`infra/detector/README.md`](infra/detector/README.md).
 
    ```
    scripts/build_lambda.sh
    cd infra/detector
-   cp backend.hcl.example backend.hcl
+   cp backend.hcl.example backend.hcl                       # set the state bucket name
    cp detector.auto.tfvars.example detector.auto.tfvars     # set alert_email
    AWS_PROFILE=clickops-admin terraform init -backend-config=backend.hcl
    AWS_PROFILE=clickops-admin terraform apply
    cd ../..
    AWS_PROFILE=clickops-admin scripts/store_slack_webhook.sh
-   ```
-
-5. **Configure and check.** Copy `clickops.example.yaml` to `clickops.yaml`, put in the state bucket and
-   your account ID, then run:
-
-   ```
-   cp clickops.example.yaml clickops.yaml
    AWS_PROFILE=clickops-admin uv run clickops doctor
    AWS_PROFILE=clickops-admin uv run clickops status
    ```
 
-   Make a harmless change in the console (change the sandbox Lambda's timeout, for example) and an
-   alert arrives within a few minutes. `scripts/e2e_alerts.sh` does this from the command line.
+Make a harmless change in the console (change the sandbox Lambda's timeout, for example) and an
+alert arrives within a few minutes. `scripts/e2e_alerts.sh` does this from the command line.
 
 Afterwards, `clickops scan` lists shadow resources, `clickops import` drafts Terraform for them and
 `clickops events --since 1h` shows what was detected. All commands are listed under [Commands](#commands).
