@@ -38,6 +38,10 @@ changes Terraform-managed infrastructure outside Terraform.
 - **CI and release automation:** `make check` (ruff, strict mypy, pytest), Terraform plan and apply
   through GitHub OIDC, IAM Access Analyzer checks on every policy, and a release workflow that
   attaches the wheel and the reproducible Lambda package to a GitHub release.
+- **Teardown and cost:** `make destroy` removes the three roots in the safe order (with a confirmation
+  prompt and `DRY_RUN=1`), and `scripts/cost_report.py` reports the real monthly cost of everything
+  tagged `project=clickops`.
+- **Demo:** a re-runnable VHS tape in `demo/`.
 - Documentation: architecture, threat model, cost and example alerts in `docs/`.
 
 ### Known limitations
