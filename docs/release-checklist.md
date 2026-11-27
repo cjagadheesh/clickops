@@ -12,7 +12,7 @@ pull request or issue. The code side is finished; everything left needs an AWS a
 | All six resource types alert correctly | the six scenarios in `docs/e2e-results.md` all pass | the e2e run |
 | `scan` and `import` work on the real account | `clickops scan`; `CONFIRM=yes scripts/test_import_bucket.sh` | Terraform 1.10+, `clickops.yaml` |
 | Tamper alerts fire | `scripts/e2e_alerts.sh` and `clickops status` after stopping the trail in a throwaway test | applied detector |
-| No stored credentials | `git grep -nE 'AKIA|hooks.slack.com/services'` finds nothing; CI uses OIDC; the webhook is in SSM | nothing |
+| No stored credentials | `git grep -nE 'AKIA[0-9A-Z]{16}|hooks\.slack\.com/services' -- . ':!docs/release-checklist.md' ':!tests/test_fetch_fixtures.py'` finds nothing (that test holds a fake key to prove redaction); CI uses OIDC; the webhook is in SSM | nothing |
 | Access Analyzer shows no errors or security warnings | the plan job's Access Analyzer step is green for both roles | CI role set up |
 | Monthly cost confirmed | `scripts/cost_report.py` after a full month; put the figure in `docs/cost.md` | cost allocation tag activated |
 | README quickstart verified from a fresh clone | follow the README in a new directory, up to `terraform plan` for every root | Terraform |
