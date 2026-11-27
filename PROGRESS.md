@@ -646,3 +646,38 @@
 - On a laptop with Terraform: clone fresh, follow the README, and run `terraform plan` (no apply) in `infra/bootstrap`, `infra/sandbox` and `infra/detector`. Terraform `fmt`, `validate` and `plan` have never been run on these files, so expect small fixes; tell me what breaks.
 - After a full month: activate the `project` cost allocation tag in Billing, run `scripts/cost_report.py`, and put the figure in `docs/cost.md`.
 - Run `DRY_RUN=1 make destroy` to read the plan. Only run the real one when you want everything gone.
+
+## Day 30: buffer and v0.1.0
+
+**Done**
+- Re-ran `make check` on `main`: ruff clean, mypy strict clean, pytest 889 passed.
+- Added the Day 27 to 29 items to `CHANGELOG.md` and a release checklist, `docs/release-checklist.md`, that maps each line of the definition of done to the command that verifies it and what it needs. Checked its credential search for real: no `AKIA` key or Slack webhook URL is in the repository apart from the fake key in `tests/test_fetch_fixtures.py` that proves redaction works.
+- Nothing was left over from Days 1 to 29 that can be built without AWS.
+
+**Not done (needs you)**
+- `scripts/e2e.sh`, the Terraform CI run on `main` and the first `terraform plan` of the three roots need an AWS account and Terraform, so the definition of done is not met.
+- The `v0.1.0` tag was not created: it must follow a green live run. Steps are in `docs/release-checklist.md` (optional `v0.1.0-rc1` first, set the date on the changelog heading, then `git tag v0.1.0 && git push origin v0.1.0`).
+
+## Final summary
+
+clickops 0.1.0 is complete in code. One Python 3.12 package serves both the CLI (`doctor`, `events`, `scan`, `import`, `status`) and the detector Lambda. The Lambda turns a CloudTrail write event into a stored finding and a Slack or email alert: normalize, classify the actor, resolve the resource, compare with Terraform state, decide outcome and severity. It covers six resource types, detects tampering with its own trail, rules and function, and never reverts anything. Three Terraform roots (bootstrap, sandbox, detector) build the infrastructure, with GitHub OIDC and scoped least-privilege policies checked by Access Analyzer. Releases, the reproducible Lambda zip, a threat model, a cost document, a teardown command and a README quickstart are in place. 889 tests run on moto and synthetic fixtures; nothing has run against a real AWS account.
+
+**Everything that needs a human, in order**
+1. Create the repository variables, then `terraform apply` the bootstrap, sandbox and detector roots. Expect small Terraform fixes on first use: `fmt`, `validate` and `plan` have never been run.
+2. Store the Slack webhook (`scripts/store_slack_webhook.sh`) and confirm the SNS email.
+3. Record real fixtures (`scripts/fetch_fixtures.py`) and replace the synthetic ones.
+4. Run `scripts/e2e_alerts.sh`, `scripts/e2e.sh` and `scripts/test_import_bucket.sh`; commit `docs/e2e-results.md`.
+5. Run `clickops scan` and `clickops status` against the real account.
+6. Record `demo/demo.gif`; optionally add a Slack alert screenshot.
+7. After a month, run `scripts/cost_report.py` and update `docs/cost.md`.
+8. Push `v0.1.0-rc1`, check the release assets, then tag `v0.1.0`.
+
+## v0.2 ideas
+
+- More resource types: RDS, SQS and SNS, KMS keys, VPC route tables and network ACLs, DynamoDB tables.
+- Multi-account through AWS Organizations: an organization trail and a delegated detector account.
+- Auto-revert behind an approval button in Slack, using the `terraform apply -target` command the alert already shows.
+- Catch drift that makes no API call (provider changes) with a scheduled `terraform plan` that feeds the same events table.
+- Several regions, and a `clickops.yaml` setting for which ones.
+- A small `clickops explain <event-id>` command that shows the comparison behind a finding.
+- Per-resource owners (from tags) so alerts mention the person or team responsible.
